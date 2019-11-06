@@ -6,6 +6,9 @@ package de.mcs.blobstore;
 import java.io.IOException;
 import java.io.InputStream;
 
+import org.rocksdb.RocksDB;
+import org.rocksdb.RocksDBException;
+
 /**
  * @author w.klaas
  *
@@ -19,15 +22,15 @@ public class BlobStorageImpl implements BlobStorage {
    * 
    * @param path
    *          where to create/open the blob storage
+   * @throws RocksDBException
    */
-  public BlobStorageImpl(String path) {
+  public BlobStorageImpl(String path) throws RocksDBException {
     this.path = path;
     initBlobStorage();
   }
 
-  private void initBlobStorage() {
-    // TODO Auto-generated method stub
-
+  private void initBlobStorage() throws RocksDBException {
+    RocksDB db = RocksDB.open(path);
   }
 
   @Override
