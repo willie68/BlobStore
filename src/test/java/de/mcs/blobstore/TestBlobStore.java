@@ -1,6 +1,6 @@
 package de.mcs.blobstore;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertTrue;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -31,6 +31,7 @@ public class TestBlobStore {
   @Test
   public void test() throws IOException {
     File outfile = new File("tmp/outfile.txt");
+    outfile.getParentFile().mkdirs();
     byte[] buffer = new byte[4096];
     Random rnd = new Random();
     rnd.nextBytes(buffer);
