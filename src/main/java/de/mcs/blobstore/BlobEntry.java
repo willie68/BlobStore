@@ -21,10 +21,21 @@
  */
 package de.mcs.blobstore;
 
+import java.util.List;
+
 /**
  * @author wklaa_000
  *
  */
 public class BlobEntry {
+  private String key;
+  private String family;
+  private long retention;
+  private long timestamp;
+  private Metadata metadata;
+  private long length;
+  private String hash;
+
+  private List<ChunkEntry> chunkno;
 
 }
