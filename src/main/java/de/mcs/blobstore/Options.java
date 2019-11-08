@@ -28,7 +28,21 @@ package de.mcs.blobstore;
 public class Options {
 
   /**
-   * how much is the delete treshhold 
+   * create a new option object with defaults
+   * 
+   * @return option object with defaults
+   */
+  public static Options defaultOptions() {
+    return new Options().setvCntCompressAge(0).setvCntCompressionMode(0).setvCntDeleteTreshHold(10)
+        .setvLogAge(1 * 60 * 60 * 1000).setVlogMaxDocCount(10000).setVlogMaxSize(100 * 1024 * 1024).setVlogMaxCount(10);
+  }
+
+  /**
+   * path to the database folder
+   */
+  private String path;
+  /**
+   * how much is the delete treshhold
    * if the deleted data bytes are > then the treshhold (in percent) than the container will be compacted.
    */
   int vCntDeleteTreshHold;
@@ -44,14 +58,23 @@ public class Options {
   int vCntCompressionMode;
 
   /**
-   * maximum size of a vLog file. If the file is > than that, the vLog file will be marked for compacting and as read only
+   * maximum count of vLog files. If the count is > than that, a new vLog file will not be created.
+   * Any put will than have to wait, until another vlog file is ready for taking this request or a
+   * older vlog file has been compacted.
+   */
+  private long vlogMaxCount;
+
+  /**
+   * maximum size of a vLog file. If the file is > than that, the vLog file will be marked for compacting and as read
+   * only
    */
   long vlogMaxSize;
 
   /**
-   * maximum count of docs of a vLog file. If the count is > than that, the vLog file will be marked for compacting and as read only
+   * maximum count of docs of a vLog file. If the count is > than that, the vLog file will be marked for compacting and
+   * as read only
    */
-  long vlogMaxCount;
+  long vlogMaxDocCount;
 
   /**
    * if the last write access is oldeer than that, the vLog file will be marked for compacting and as read only
@@ -66,8 +89,9 @@ public class Options {
   }
 
   /**
-   * @param vCntDeleteTreshHold the vCntDeleteTreshHold to set
-   * @return 
+   * @param vCntDeleteTreshHold
+   *          the vCntDeleteTreshHold to set
+   * @return
    */
   public Options setvCntDeleteTreshHold(int vCntDeleteTreshHold) {
     this.vCntDeleteTreshHold = vCntDeleteTreshHold;
@@ -82,7 +106,8 @@ public class Options {
   }
 
   /**
-   * @param vCntCompressAge the vCntCompressAge to set
+   * @param vCntCompressAge
+   *          the vCntCompressAge to set
    */
   public Options setvCntCompressAge(long vCntCompressAge) {
     this.vCntCompressAge = vCntCompressAge;
@@ -97,7 +122,8 @@ public class Options {
   }
 
   /**
-   * @param vCntCompressionMode the vCntCompressionMode to set
+   * @param vCntCompressionMode
+   *          the vCntCompressionMode to set
    */
   public Options setvCntCompressionMode(int vCntCompressionMode) {
     this.vCntCompressionMode = vCntCompressionMode;
@@ -112,7 +138,8 @@ public class Options {
   }
 
   /**
-   * @param vlogMaxSize the vlogMaxSize to set
+   * @param vlogMaxSize
+   *          the vlogMaxSize to set
    */
   public Options setVlogMaxSize(long vlogMaxSize) {
     this.vlogMaxSize = vlogMaxSize;
@@ -120,17 +147,18 @@ public class Options {
   }
 
   /**
-   * @return the vlogMaxCount
+   * @return the vlogMaxDocCount
    */
-  public long getVlogMaxCount() {
-    return vlogMaxCount;
+  public long getVlogMaxDocCount() {
+    return vlogMaxDocCount;
   }
 
   /**
-   * @param vlogMaxCount the vlogMaxCount to set
+   * @param vlogMaxDocCount
+   *          the vlogMaxDocCount to set
    */
-  public Options setVlogMaxCount(long vlogMaxCount) {
-    this.vlogMaxCount = vlogMaxCount;
+  public Options setVlogMaxDocCount(long vlogMaxDocCount) {
+    this.vlogMaxDocCount = vlogMaxDocCount;
     return this;
   }
 
@@ -142,10 +170,45 @@ public class Options {
   }
 
   /**
-   * @param vLogAge the vLogAge to set
+   * @param vLogAge
+   *          the vLogAge to set
    */
   public Options setvLogAge(long vLogAge) {
     this.vLogAge = vLogAge;
+    return this;
+  }
+
+  /**
+   * @return the path
+   */
+  public String getPath() {
+    return path;
+  }
+
+  /**
+   * @param path
+   *          the path to set
+   * @return
+   */
+  public Options setPath(String path) {
+    this.path = path;
+    return this;
+  }
+
+  /**
+   * @return the vlogMaxCount
+   */
+  public long getVlogMaxCount() {
+    return vlogMaxCount;
+  }
+
+  /**
+   * @param vlogMaxCount
+   *          the vlogMaxCount to set
+   * @return
+   */
+  public Options setVlogMaxCount(long vlogMaxCount) {
+    this.vlogMaxCount = vlogMaxCount;
     return this;
   }
 }

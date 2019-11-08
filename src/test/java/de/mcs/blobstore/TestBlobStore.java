@@ -1,6 +1,6 @@
 package de.mcs.blobstore;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -25,7 +25,7 @@ public class TestBlobStore {
 
   @Before
   public void setUp() throws Exception {
-    storage = new BlobStorageImpl("mydb");
+    storage = new BlobStorageImpl(Options.defaultOptions().setPath("./mydb"));
   }
 
   @Test

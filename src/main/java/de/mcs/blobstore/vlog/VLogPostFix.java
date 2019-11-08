@@ -2,7 +2,7 @@
  * MCS Media Computer Software
  * Copyright 2019 by Wilfried Klaas
  * Project: BlobStore
- * File: VLogDescription.java
+ * File: VLogPostFix.java
  * EMail: W.Klaas@gmx.de
  * Created: 07.11.2019 wklaa_000
  * 
@@ -19,12 +19,13 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>
  */
-package de.mcs.blobstore;
+package de.mcs.blobstore.vlog;
 
 /**
  * @author wklaa_000
  *
  */
-public class VLogDescriptor {
-
+public class VLogPostFix {
+  long length;
+  String hash;
 }
