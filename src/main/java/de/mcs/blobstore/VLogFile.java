@@ -76,6 +76,7 @@ public class VLogFile implements Closeable {
   }
 
   long put(VLogDescriptor vlogDesc, InputStream in) {
-
+    fileChannel.transferFrom(src, position, count)
+    return 0;
   }
 }
