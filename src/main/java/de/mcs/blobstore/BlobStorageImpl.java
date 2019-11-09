@@ -10,6 +10,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
+import org.apache.log4j.Logger;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ColumnFamilyOptions;
@@ -32,6 +33,7 @@ public class BlobStorageImpl implements BlobStorage {
 
   private static final String DEFAULT_COLUMN_FAMILY = new String(RocksDB.DEFAULT_COLUMN_FAMILY);
 
+  private Logger log = Logger.getLogger(this.getClass());
   private Options options;
 
   private List<ColumnFamilyDescriptor> cfDescriptors;
@@ -98,7 +100,6 @@ public class BlobStorageImpl implements BlobStorage {
       String json = GsonUtils.getJsonMapper().toJson(blobEntry);
 
       dbPut(family, key, json);
-      System.out.println(blobEntry.toJsonString());
     } catch (RocksDBException e) {
       throw new BlobException(e);
     }
@@ -242,7 +243,6 @@ public class BlobStorageImpl implements BlobStorage {
       }
     }
     if (columnFamilyHandle == null) {
-      System.out.println("create family");
       try (ColumnFamilyOptions cfOpts = new ColumnFamilyOptions().optimizeUniversalStyleCompaction()) {
         ColumnFamilyDescriptor columnFamilyDescriptor = new ColumnFamilyDescriptor(family.getBytes(), cfOpts);
         cfDescriptors.add(columnFamilyDescriptor);
@@ -251,5 +251,16 @@ public class BlobStorageImpl implements BlobStorage {
       }
     }
     return columnFamilyHandle;
+  }
+
+  @Override
+  public void close() {
+    if (db != null) {
+      for (final ColumnFamilyHandle columnFamilyHandle : columnFamilyHandleList) {
+        columnFamilyHandle.close();
+      }
+      db.close();
+    }
+    vLogList.close();
   }
 }

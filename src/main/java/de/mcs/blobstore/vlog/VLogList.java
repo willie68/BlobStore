@@ -6,16 +6,18 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
 
+import org.apache.log4j.Logger;
+
 import de.mcs.blobstore.BlobException;
 import de.mcs.blobstore.ChunkEntry;
 import de.mcs.blobstore.Options;
 
 public class VLogList {
 
+  private Logger log = Logger.getLogger(this.getClass());
+
   private Options options;
-
   private Map<String, VLogFile> list;
-
   private ReentrantLock writeLock = new ReentrantLock();
 
   public VLogList(Options options) {
@@ -65,6 +67,16 @@ public class VLogList {
     VLog vlog = VLog.wrap(vLogFile);
     vlog.forReading();
     return vlog;
+  }
+
+  public void close() {
+    for (VLogFile vLogFile : list.values()) {
+      try {
+        vLogFile.close();
+      } catch (IOException e) {
+        log.error(e);
+      }
+    }
   }
 
 }

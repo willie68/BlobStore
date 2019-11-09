@@ -135,7 +135,7 @@ class TestVLogFile {
       byte[] buffer = new byte[1024 * 1024];
       new Random().nextBytes(buffer);
       ByteArrayInputStream in = new ByteArrayInputStream(buffer);
-      for (int i = 0; i < 1000; i++) {
+      for (int i = 1; i < 1001; i++) {
         in.reset();
         String id = ids.getID();
         Monitor m = MeasureFactory.start("write");

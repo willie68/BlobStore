@@ -28,4 +28,6 @@ public interface BlobStorage {
   boolean has(String family, String key) throws IOException;
 
   Metadata getMetadata(String family, String key) throws IOException;
+
+  void close();
 }

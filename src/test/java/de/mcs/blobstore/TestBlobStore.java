@@ -7,21 +7,27 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 import java.util.UUID;
 
 import org.apache.commons.io.IOUtils;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.jupiter.api.Assertions;
 
 import de.mcs.blobstore.utils.QueuedIDGenerator;
+import de.mcs.jmeasurement.MeasureFactory;
+import de.mcs.jmeasurement.Monitor;
 import de.mcs.utils.Files;
 
 public class TestBlobStore {
@@ -46,8 +52,13 @@ public class TestBlobStore {
     storage = new BlobStorageImpl(Options.defaultOptions().setPath(filePath.getAbsolutePath()));
   }
 
+  @After
+  public void tearDown() throws Exception {
+    storage.close();
+  }
+
   @Test
-  public void test() throws IOException {
+  public void testSingleFile() throws IOException {
     File outfile = new File("tmp/outfile.txt");
     outfile.getParentFile().mkdirs();
     byte[] buffer = new byte[128];
@@ -89,4 +100,77 @@ public class TestBlobStore {
     }
   }
 
+  @Test
+  public void test1000() throws IOException {
+    byte[] buffer = new byte[1024 * 1024];
+    new Random().nextBytes(buffer);
+    ByteArrayInputStream in = new ByteArrayInputStream(buffer);
+
+    Map<String, Metadata> myIds = new HashMap<>();
+
+    System.out.println("writing");
+    for (int i = 1; i <= 1000; i++) {
+      in.reset();
+      String uuid = ids.getID();
+      Metadata metadata = new Metadata().setContentLength(0).setContentType("text/simple").setRetention(i);
+      myIds.put(uuid, metadata);
+      Monitor m = MeasureFactory.start("write");
+      try {
+        storage.put(FAMILY, uuid, in, metadata);
+      } finally {
+        m.stop();
+      }
+
+      if ((i % 100) == 0) {
+        System.out.print(".");
+      }
+      if ((i % 10000) == 0) {
+        System.out.println(" " + i);
+      }
+    }
+
+    System.out.println();
+    System.out.println("reading");
+    int i = 0;
+    for (String uuid : myIds.keySet()) {
+      i++;
+      if ((i % 100) == 0) {
+        System.out.print(".");
+      }
+      if ((i % 10000) == 0) {
+        System.out.println(" " + i);
+      }
+      Metadata metadata = myIds.get(uuid);
+
+      Monitor m = MeasureFactory.start("test");
+      try {
+        assertTrue(storage.has(FAMILY, uuid));
+      } finally {
+        m.stop();
+      }
+
+      Metadata metadataStored = null;
+      m = MeasureFactory.start("read-meta");
+      try {
+        metadataStored = storage.getMetadata(FAMILY, uuid);
+      } finally {
+        m.stop();
+      }
+      assertNotNull(metadataStored);
+      assertEquals(metadata.getContentType(), metadataStored.getContentType());
+      assertEquals(buffer.length, metadataStored.getContentLength());
+      assertEquals(metadata.getRetention(), metadataStored.getRetention());
+
+      in.reset();
+      m = MeasureFactory.start("read-bin");
+      try (InputStream inputStream = storage.get(FAMILY, uuid)) {
+        assertTrue(IOUtils.contentEquals(inputStream, in));
+      } finally {
+        m.stop();
+      }
+    }
+    System.out.println();
+    System.out.printf("error on id: %d\r\n", ids.getErrorCount());
+    System.out.println(MeasureFactory.asString());
+  }
 }
