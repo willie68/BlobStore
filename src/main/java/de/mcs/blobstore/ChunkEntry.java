@@ -140,6 +140,18 @@ public class ChunkEntry {
     return this;
   }
 
+  public long getDescriptionSize() {
+    return startBinary - startDescription;
+  }
+
+  public long getBinarySize() {
+    return startPostfix - startBinary;
+  }
+
+  public long getPostfixSize() {
+    return end - startPostfix;
+  }
+
   @Override
   public String toString() {
     return GsonUtils.getJsonMapper().toJson(this);

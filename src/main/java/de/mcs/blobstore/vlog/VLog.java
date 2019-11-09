@@ -21,6 +21,7 @@ public class VLog implements Closeable {
 
   private VLogFile vLogFile;
   private Lock writeLock = null;
+  private Lock readLock = null;
 
   private VLog() {
   }
@@ -50,12 +51,18 @@ public class VLog implements Closeable {
   }
 
   public String getName() {
-    // TODO Auto-generated method stub
-    return null;
+    return vLogFile.getName();
   }
 
   public VLogEntryInfo put(VLogDescriptor vlogDesc, InputStream in) throws IOException {
     return getvLogFile().put(vlogDesc, in);
+  }
+
+  public void forReading() {
+  }
+
+  public InputStream get(long startBinary, long binarySize) throws IOException {
+    return vLogFile.get(startBinary, binarySize);
   }
 
 }

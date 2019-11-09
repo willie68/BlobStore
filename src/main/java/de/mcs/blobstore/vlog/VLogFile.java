@@ -51,6 +51,7 @@ import de.mcs.utils.logging.Logger;
  */
 public class VLogFile implements Closeable {
 
+  private static final int BUFFER_LENGTH = 8096;
   private static final String DOC_START = "@@@@";
   private Logger log = Logger.getLogger(this.getClass());
   private String internalName;
@@ -58,9 +59,23 @@ public class VLogFile implements Closeable {
   private FileChannel fileChannel;
   private RandomAccessFile writer;
 
+  public static File getFilePathName(File path, int number) {
+    String internalName = String.format("vlog_%04d.vlog", number);
+    return new File(path, internalName);
+  }
+
   public VLogFile(File path, int number) throws IOException {
-    internalName = String.format("vlog_%04d.vlog", number);
-    vLogFile = new File(path, internalName);
+    vLogFile = getFilePathName(path, number);
+    init();
+  }
+
+  public VLogFile(File file) throws IOException {
+    this.vLogFile = file;
+    init();
+  }
+
+  private void init() throws IOException {
+    internalName = vLogFile.getName();
     if (vLogFile.exists()) {
       loadLogFile();
     } else {
@@ -100,7 +115,8 @@ public class VLogFile implements Closeable {
     info.startDescription = info.start + DOC_START.length();
 
     String json = GsonUtils.getJsonMapper().toJson(vlogDesc);
-    ByteBuffer buf = ByteBuffer.allocate(json.length() + DOC_START.length());
+    int bufSize = DOC_START.length() + json.length();
+    ByteBuffer buf = ByteBuffer.allocate(bufSize > BUFFER_LENGTH ? bufSize : BUFFER_LENGTH);
     buf.put(DOC_START.getBytes());
     // first write the description
     buf.put(json.getBytes());
@@ -134,5 +150,9 @@ public class VLogFile implements Closeable {
 
   public long getSize() {
     return vLogFile.length();
+  }
+
+  public boolean isAvailbleForWriting() {
+    return true;
   }
 }

@@ -3,9 +3,12 @@
  */
 package de.mcs.blobstore.vlog;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -71,30 +74,55 @@ class TestVLogFile {
   private void testFile(VLogFile vLogFile, byte[] buffer, ByteArrayInputStream in, VLogDescriptor vLogDescSrc,
       VLogEntryInfo info) throws IOException {
     in.reset();
+    ByteArrayOutputStream out = new ByteArrayOutputStream(1024 * 1024 * 2);
+    Monitor m = MeasureFactory.start("readDesc");
+    try {
+      try (InputStream input = vLogFile.get(info.startDescription, info.getDescriptionSize())) {
+        assertNotNull(input);
+        IOUtils.copy(input, out);
+      }
+    } finally {
+      m.stop();
+    }
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(out.toByteArray());
+    VLogDescriptor vLogDescDest = GsonUtils.getJsonMapper().fromJson(new InputStreamReader(inputStream),
+        VLogDescriptor.class);
+    assertNotNull(vLogDescDest);
+    assertEquals(vLogDescSrc.getChunkno(), vLogDescDest.getChunkno());
+    assertEquals(vLogDescSrc.getFamily(), vLogDescDest.getFamily());
+    assertEquals(vLogDescSrc.getKey(), vLogDescDest.getKey());
+    assertEquals(vLogDescSrc.getRetention(), vLogDescDest.getRetention());
+    assertEquals(vLogDescSrc.getTimestamp(), vLogDescDest.getTimestamp());
 
-    try (InputStream input = vLogFile.get(info.startDescription, info.getDescriptionSize())) {
-      assertNotNull(input);
-      VLogDescriptor vLogDescDest = GsonUtils.getJsonMapper().fromJson(new InputStreamReader(input),
-          VLogDescriptor.class);
-      assertNotNull(vLogDescDest);
-      assertEquals(vLogDescSrc.getChunkno(), vLogDescDest.getChunkno());
-      assertEquals(vLogDescSrc.getFamily(), vLogDescDest.getFamily());
-      assertEquals(vLogDescSrc.getKey(), vLogDescDest.getKey());
-      assertEquals(vLogDescSrc.getRetention(), vLogDescDest.getRetention());
-      assertEquals(vLogDescSrc.getTimestamp(), vLogDescDest.getTimestamp());
+    out.reset();
+    m = MeasureFactory.start("readBin");
+    try {
+      try (InputStream input = vLogFile.get(info.startBinary, info.getBinarySize())) {
+        assertNotNull(input);
+        IOUtils.copy(input, out);
+      }
+    } finally {
+      m.stop();
     }
 
-    try (InputStream input = vLogFile.get(info.startBinary, info.getBinarySize())) {
-      assertTrue(IOUtils.contentEquals(input, in));
-    }
+    inputStream = new ByteArrayInputStream(out.toByteArray());
+    assertTrue(IOUtils.contentEquals(inputStream, in));
 
-    try (InputStream input = vLogFile.get(info.startPostfix, info.getPostfixSize())) {
-      assertNotNull(input);
-      VLogPostFix vLogPostFix = GsonUtils.getJsonMapper().fromJson(new InputStreamReader(input), VLogPostFix.class);
-      assertNotNull(vLogPostFix);
-      assertEquals(info.getHash(), vLogPostFix.hash);
-      assertEquals(buffer.length, vLogPostFix.length);
+    out.reset();
+    m = MeasureFactory.start("readPostfix");
+    try {
+      try (InputStream input = vLogFile.get(info.startPostfix, info.getPostfixSize())) {
+        assertNotNull(input);
+        IOUtils.copy(input, out);
+      }
+    } finally {
+      m.stop();
     }
+    inputStream = new ByteArrayInputStream(out.toByteArray());
+    VLogPostFix vLogPostFix = GsonUtils.getJsonMapper().fromJson(new InputStreamReader(inputStream), VLogPostFix.class);
+    assertNotNull(vLogPostFix);
+    assertEquals(info.getHash(), vLogPostFix.hash);
+    assertEquals(buffer.length, vLogPostFix.length);
   }
 
   @Test

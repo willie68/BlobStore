@@ -168,6 +168,7 @@ public class BlobEntry {
 
   public void addChunkEntry(ChunkEntry chunkEntry) {
     chunks.add(chunkEntry);
+    metadata.setContentLength(metadata.getContentLength() + chunkEntry.getBinarySize());
   }
 
   @Override

@@ -21,7 +21,9 @@
  */
 package de.mcs.blobstore.utils;
 
+import de.mcs.blobstore.BlobEntry;
 import de.mcs.blobstore.ChunkEntry;
+import de.mcs.blobstore.vlog.VLogDescriptor;
 import de.mcs.blobstore.vlog.VLogEntryInfo;
 
 /**
@@ -30,13 +32,18 @@ import de.mcs.blobstore.vlog.VLogEntryInfo;
  */
 public class TransformerHelper {
 
-  public static ChunkEntry transformVLogEntryInfoToChunkEntry(VLogEntryInfo info, int chunkNumer,
+  public static ChunkEntry transformVLogEntryInfo2ChunkEntry(VLogEntryInfo info, int chunkNumber,
       String containerName) {
     ChunkEntry chunkEntry = new ChunkEntry();
-    chunkEntry.setChunkNumber(chunkNumer).setContainerName(containerName).setEnd(info.getEnd()).setHash(info.getHash())
+    chunkEntry.setChunkNumber(chunkNumber).setContainerName(containerName).setEnd(info.getEnd()).setHash(info.getHash())
         .setStart(info.getStart()).setStartBinary(info.getStartBinary()).setStartDescription(info.getStartBinary())
         .setStartDescription(info.getStartDescription()).setStartPostfix(info.getStartPostfix());
     return chunkEntry;
+  }
+
+  public static VLogDescriptor transformBLobEntry2VLogDescriptor(BlobEntry entry, int chunkNumber) {
+    return VLogDescriptor.create().setChunkno(chunkNumber).setFamily(entry.getFamily()).setKey(entry.getKey())
+        .setRetention(entry.getRetention()).setTimestamp(entry.getTimestamp());
   }
 
 }

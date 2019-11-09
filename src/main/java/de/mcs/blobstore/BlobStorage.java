@@ -13,9 +13,9 @@ public interface BlobStorage {
 
   void delete(String key) throws IOException;
 
-  boolean has(String key);
+  boolean has(String key) throws IOException;
 
-  Metadata getMetadata(String key);
+  Metadata getMetadata(String key) throws IOException;
 
   void put(String family, String key, InputStream in, Metadata metadata) throws IOException;
 
@@ -25,7 +25,7 @@ public interface BlobStorage {
 
   void delete(String family, String key) throws IOException;
 
-  boolean has(String family, String key);
+  boolean has(String family, String key) throws IOException;
 
-  Metadata getMetadata(String family, String key);
+  Metadata getMetadata(String family, String key) throws IOException;
 }
