@@ -1,4 +1,4 @@
-package de.mcs.blobstore.utils;
+package de.mcs.utils;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;

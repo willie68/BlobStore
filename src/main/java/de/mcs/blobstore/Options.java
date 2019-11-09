@@ -21,6 +21,10 @@
  */
 package de.mcs.blobstore;
 
+import java.io.StringWriter;
+
+import de.mcs.utils.GsonUtils;
+
 /**
  * @author wklaa_000
  *
@@ -211,4 +215,16 @@ public class Options {
     this.vlogMaxCount = vlogMaxCount;
     return this;
   }
+
+  @Override
+  public String toString() {
+    return GsonUtils.getJsonMapper().toJson(this);
+  }
+
+  public String toYamlString() {
+    StringWriter writer = new StringWriter();
+    GsonUtils.getYamlMapper().dump(this, writer);
+    return writer.toString();
+  }
+
 }

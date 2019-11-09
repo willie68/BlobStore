@@ -20,11 +20,11 @@ import org.apache.commons.io.IOUtils;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import de.mcs.blobstore.utils.GsonUtils;
 import de.mcs.blobstore.utils.QueuedIDGenerator;
 import de.mcs.jmeasurement.MeasureFactory;
 import de.mcs.jmeasurement.Monitor;
 import de.mcs.utils.Files;
+import de.mcs.utils.GsonUtils;
 
 /**
  * @author w.klaas

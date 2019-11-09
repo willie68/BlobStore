@@ -62,9 +62,14 @@ public class VLogEntryInfo {
     return end - startPostfix;
   }
 
+  public long getEnd() {
+    return end;
+  }
+
   @Override
   public String toString() {
     return String.format("start: %d, desc: %d, bin: %d, post: %d, end: %d, hash: %s", start, startDescription,
         startBinary, startPostfix, end, hash);
   }
+
 }

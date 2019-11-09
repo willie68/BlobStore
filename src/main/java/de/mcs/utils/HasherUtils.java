@@ -1,4 +1,4 @@
-package de.mcs.blobstore.utils;
+package de.mcs.utils;
 
 import java.io.BufferedInputStream;
 import java.io.FileInputStream;

@@ -7,7 +7,7 @@
 /**
  * 
  */
-package de.mcs.blobstore.utils;
+package de.mcs.utils;
 
 /*-
  * #%L

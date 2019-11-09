@@ -6,6 +6,7 @@ package de.mcs.blobstore;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import org.rocksdb.ColumnFamilyDescriptor;
@@ -15,8 +16,10 @@ import org.rocksdb.DBOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 
+import de.mcs.blobstore.utils.TransformerHelper;
 import de.mcs.blobstore.vlog.VLog;
 import de.mcs.blobstore.vlog.VLogDescriptor;
+import de.mcs.blobstore.vlog.VLogEntryInfo;
 import de.mcs.blobstore.vlog.VLogList;
 
 /**
@@ -81,7 +84,14 @@ public class BlobStorageImpl implements BlobStorage {
   public void put(String family, String key, InputStream in, Metadata metadata) throws IOException {
     VLogDescriptor vlogDesc = VLogDescriptor.create();
     try (VLog vlog = vlogList.getNextAvailableVLog()) {
-      vlog.getvLogFile().put(vlogDesc, in);
+      VLogEntryInfo vLogEntryInfo = vlog.put(vlogDesc, in);
+      ChunkEntry chunkEntry = TransformerHelper.transformVLogEntryInfoToChunkEntry(vLogEntryInfo, 0, vlog.getName());
+      BlobEntry blobEntry = new BlobEntry();
+      blobEntry.setFamily(family).setKey(key).setMetadata(metadata).setTimestamp(new Date().getTime())
+          .setRetention(metadata.getRetention());
+      blobEntry.addChunkEntry(chunkEntry);
+
+      System.out.println(blobEntry.toJsonString());
     }
   }
 
@@ -128,5 +138,17 @@ public class BlobStorageImpl implements BlobStorage {
   @Override
   public boolean has(String key) {
     return has(DEFAULT_COLUMN_FAMILY, key);
+  }
+
+  @Override
+  public Metadata getMetadata(String key) {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  @Override
+  public Metadata getMetadata(String family, String key) {
+    // TODO Auto-generated method stub
+    return null;
   }
 }

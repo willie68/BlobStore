@@ -33,13 +33,12 @@ import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 
 import org.apache.commons.io.input.BoundedInputStream;
 
-import de.mcs.blobstore.utils.ChannelTools;
-import de.mcs.blobstore.utils.GsonUtils;
-import de.mcs.blobstore.utils.HasherUtils;
+import de.mcs.utils.ChannelTools;
+import de.mcs.utils.GsonUtils;
+import de.mcs.utils.HasherUtils;
 import de.mcs.utils.io.RandomAccessInputStream;
 import de.mcs.utils.logging.Logger;
 
@@ -95,7 +94,7 @@ public class VLogFile implements Closeable {
     writer.close();
   }
 
-  public VLogEntryInfo put(VLogDescriptor vlogDesc, InputStream in) throws IOException, NoSuchAlgorithmException {
+  public VLogEntryInfo put(VLogDescriptor vlogDesc, InputStream in) throws IOException {
     VLogEntryInfo info = new VLogEntryInfo();
     info.start = fileChannel.position();
     info.startDescription = info.start + DOC_START.length();

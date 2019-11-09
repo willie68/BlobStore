@@ -6,7 +6,7 @@ package de.mcs.blobstore;
 import java.util.HashMap;
 import java.util.Map;
 
-import de.mcs.blobstore.utils.GsonUtils;
+import de.mcs.utils.GsonUtils;
 
 /**
  * @author w.klaas
@@ -16,6 +16,7 @@ public class Metadata {
 
   static final String KEY_CONTENTTYPE = "contentType";
   static final String KEY_CONTENTLENGTH = "contentLength";
+  static final String KEY_RETENTION = "retention";
   private Map<String, String> properties;
 
   public Metadata() {
@@ -72,6 +73,27 @@ public class Metadata {
    */
   public Metadata setContentLength(long contentLength) {
     setProperty(KEY_CONTENTLENGTH, Long.toString(contentLength));
+    return this;
+  }
+
+  /**
+   * 
+   * @return the settet retention of thsi file, 0 no retention is set.
+   */
+  public long getRetention() {
+    if (hasProperty(KEY_RETENTION)) {
+      return Long.parseLong(getProperty(KEY_RETENTION));
+    }
+    return 0;
+  }
+
+  /**
+   * 
+   * @param retention setting the retention of this file
+   * @return metadata object
+   */
+  public Metadata setRetention(long retention) {
+    setProperty(KEY_RETENTION, Long.toString(retention));
     return this;
   }
 

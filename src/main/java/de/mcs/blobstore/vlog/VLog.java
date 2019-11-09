@@ -5,6 +5,7 @@ package de.mcs.blobstore.vlog;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -46,6 +47,15 @@ public class VLog implements Closeable {
    */
   public VLogFile getvLogFile() {
     return vLogFile;
+  }
+
+  public String getName() {
+    // TODO Auto-generated method stub
+    return null;
+  }
+
+  public VLogEntryInfo put(VLogDescriptor vlogDesc, InputStream in) throws IOException {
+    return getvLogFile().put(vlogDesc, in);
   }
 
 }

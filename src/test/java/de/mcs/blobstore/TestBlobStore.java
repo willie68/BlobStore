@@ -1,6 +1,6 @@
 package de.mcs.blobstore;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertTrue;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -46,7 +46,8 @@ public class TestBlobStore {
 
     String uuid = UUID.randomUUID().toString();
     try (InputStream in = new FileInputStream(outfile)) {
-      storage.put(uuid, in);
+      Metadata metadata = new Metadata().setContentLength(0).setContentType("text/simple").setRetention(0);
+      storage.put(uuid, in, metadata);
     }
     assertTrue(storage.has(uuid));
 

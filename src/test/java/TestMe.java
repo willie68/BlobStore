@@ -3,9 +3,9 @@ import java.util.Random;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import de.mcs.blobstore.utils.HasherUtils;
 import de.mcs.jmeasurement.MeasureFactory;
 import de.mcs.jmeasurement.Monitor;
+import de.mcs.utils.HasherUtils;
 
 class TestMe {
 

@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import de.mcs.blobstore.utils.GsonUtils;
+import de.mcs.utils.GsonUtils;
 
 class TestMetadata {
 
