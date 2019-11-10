@@ -3,6 +3,7 @@
  */
 package de.mcs.blobstore.utils;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
 import java.util.Queue;
 import java.util.UUID;
@@ -13,7 +14,7 @@ import java.util.UUID;
  */
 public class QueuedIDGenerator implements IDGenerator {
 
-  private Queue<String> queue = new ArrayDeque<>();
+  private Queue<UUID> queue = new ArrayDeque<>();
   private int errorCount = 0;
   private int queuedIdCount;
 
@@ -25,7 +26,7 @@ public class QueuedIDGenerator implements IDGenerator {
       public void run() {
         while (true) {
           while (queue.size() < queuedIdCount) {
-            queue.offer(UUID.randomUUID().toString());
+            queue.offer(UUID.randomUUID());
           }
           Thread.yield();
         }
@@ -38,12 +39,25 @@ public class QueuedIDGenerator implements IDGenerator {
 
   @Override
   public String getID() {
-    String id = queue.poll();
+    UUID id = queue.poll();
     if (id == null) {
       errorCount++;
-      id = UUID.randomUUID().toString();
+      id = UUID.randomUUID();
     }
-    return id;
+    return id.toString();
+  }
+
+  @Override
+  public ByteBuffer getByteID() {
+    UUID id = queue.poll();
+    if (id == null) {
+      errorCount++;
+      id = UUID.randomUUID();
+    }
+    ByteBuffer buf = ByteBuffer.allocateDirect(16);
+    buf.putLong(id.getMostSignificantBits());
+    buf.putLong(id.getLeastSignificantBits());
+    return buf;
   }
 
   public int getErrorCount() {

@@ -3,6 +3,8 @@
  */
 package de.mcs.blobstore.utils;
 
+import java.nio.ByteBuffer;
+
 /**
  * @author wklaa_000
  *
@@ -10,4 +12,6 @@ package de.mcs.blobstore.utils;
 public interface IDGenerator {
 
   String getID();
+
+  ByteBuffer getByteID();
 }

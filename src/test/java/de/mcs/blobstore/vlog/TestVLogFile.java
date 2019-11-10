@@ -55,6 +55,23 @@ class TestVLogFile {
   }
 
   @Test
+  void testSingleBin() throws IOException, NoSuchAlgorithmException {
+    try (VLogFile vLogFile = new VLogFile(filePath, 1)) {
+      byte[] buffer = new byte[1024 * 1024];
+      new Random().nextBytes(buffer);
+      ByteArrayInputStream in = new ByteArrayInputStream(buffer);
+      ids.getID();
+      VLogDescriptor vLogDescSrc = VLogDescriptor.create().setKey(ids.getID()).setFamily("DEFAULT").setChunkno(0)
+          .setRetention(0).setTimestamp(new Date().getTime());
+      VLogEntryInfo info = vLogFile.put(vLogDescSrc, in);
+
+      System.out.println(info.toString());
+
+      testFile(vLogFile, buffer, in, vLogDescSrc, info);
+    }
+  }
+
+  @Test
   void testSingle() throws IOException, NoSuchAlgorithmException {
     try (VLogFile vLogFile = new VLogFile(filePath, 1)) {
       byte[] buffer = new byte[1024 * 1024];
