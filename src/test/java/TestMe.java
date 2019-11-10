@@ -1,4 +1,7 @@
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
 import java.util.Random;
+import java.util.UUID;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,4 +34,15 @@ class TestMe {
     System.out.println(MeasureFactory.asString());
   }
 
+  @Test
+  void test2() {
+    System.out.println("@@@@".getBytes(Charset.forName("UTF-8")).length);
+
+    ByteBuffer buf = ByteBuffer.allocate(15);
+    long leastSignificantBits = UUID.randomUUID().getLeastSignificantBits();
+    long mostSignificantBits = UUID.randomUUID().getMostSignificantBits();
+    buf.putLong(mostSignificantBits);
+    buf.putLong(leastSignificantBits);
+    System.out.println(buf.array().length);
+  }
 }

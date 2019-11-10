@@ -21,11 +21,26 @@
  */
 package de.mcs.blobstore.vlog;
 
+import java.nio.ByteBuffer;
+
+import de.mcs.utils.HasherUtils;
+
 /**
  * @author wklaa_000
  *
  */
 public class VLogPostFix {
   long length;
-  String hash;
+  byte[] hash;
+
+  String getHash() {
+    return HasherUtils.bytesAsHexString(hash);
+  }
+
+  ByteBuffer getBytes() {
+    ByteBuffer buffer = ByteBuffer.allocateDirect(40);
+    buffer.putLong(length);
+    buffer.put(hash);
+    return buffer;
+  }
 }
