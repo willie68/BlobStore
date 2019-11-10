@@ -13,6 +13,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.ByteBuffer;
 import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 import java.util.HashMap;
@@ -60,15 +61,59 @@ class TestVLogFile {
       byte[] buffer = new byte[1024 * 1024];
       new Random().nextBytes(buffer);
       ByteArrayInputStream in = new ByteArrayInputStream(buffer);
-      ids.getID();
-      VLogDescriptor vLogDescSrc = VLogDescriptor.create().setKey(ids.getID()).setFamily("DEFAULT").setChunkno(0)
-          .setRetention(0).setTimestamp(new Date().getTime());
-      VLogEntryInfo info = vLogFile.put(vLogDescSrc, in);
+      ByteBuffer byteID = ids.getByteID();
+      VLogEntryInfo info = vLogFile.put(byteID.array(), in);
 
       System.out.println(info.toString());
 
-      testFile(vLogFile, buffer, in, vLogDescSrc, info);
+      testFileBin(vLogFile, buffer, in, byteID, info);
     }
+  }
+
+  private void testFileBin(VLogFile vLogFile, byte[] buffer, ByteArrayInputStream in, ByteBuffer byteId,
+      VLogEntryInfo info) throws IOException {
+    in.reset();
+    ByteArrayOutputStream out = new ByteArrayOutputStream(1024 * 1024 * 2);
+    Monitor m = MeasureFactory.start("readDesc");
+    try {
+      try (InputStream input = vLogFile.get(info.startDescription, info.getDescriptionSize())) {
+        assertNotNull(input);
+        IOUtils.copy(input, out);
+      }
+    } finally {
+      m.stop();
+    }
+
+    out.reset();
+    m = MeasureFactory.start("readBin");
+    try {
+      try (InputStream input = vLogFile.get(info.startBinary, info.getBinarySize())) {
+        assertNotNull(input);
+        IOUtils.copy(input, out);
+      }
+    } finally {
+      m.stop();
+    }
+
+    ByteArrayInputStream inputStream = new ByteArrayInputStream(out.toByteArray());
+    assertTrue(IOUtils.contentEquals(inputStream, in));
+
+    out.reset();
+    m = MeasureFactory.start("readPostfix");
+    try {
+      try (InputStream input = vLogFile.get(info.startPostfix, info.getPostfixSize())) {
+        assertNotNull(input);
+        IOUtils.copy(input, out);
+      }
+    } finally {
+      m.stop();
+    }
+
+    inputStream = new ByteArrayInputStream(out.toByteArray());
+    VLogPostFix vLogPostFix = GsonUtils.getJsonMapper().fromJson(new InputStreamReader(inputStream), VLogPostFix.class);
+    assertNotNull(vLogPostFix);
+    assertEquals(info.getHash(), vLogPostFix.hash);
+    assertEquals(buffer.length, vLogPostFix.length);
   }
 
   @Test
