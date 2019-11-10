@@ -21,6 +21,8 @@
  */
 package de.mcs.blobstore.vlog;
 
+import de.mcs.blobstore.Metadata;
+
 /**
  * @author wklaa_000
  *
@@ -32,6 +34,7 @@ public class VLogDescriptor {
   private int chunkno;
   private long retention;
   private long timestamp;
+  private Metadata metadata;
 
   private VLogDescriptor() {
 
@@ -118,6 +121,15 @@ public class VLogDescriptor {
    */
   public VLogDescriptor setTimestamp(long timestamp) {
     this.timestamp = timestamp;
+    return this;
+  }
+
+  public Metadata getMetadata() {
+    return this.metadata;
+  }
+
+  public VLogDescriptor setMetadata(Metadata metadata) {
+    this.metadata = metadata;
     return this;
   }
 

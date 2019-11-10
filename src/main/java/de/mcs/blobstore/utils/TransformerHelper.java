@@ -43,7 +43,7 @@ public class TransformerHelper {
 
   public static VLogDescriptor transformBLobEntry2VLogDescriptor(BlobEntry entry, int chunkNumber) {
     return VLogDescriptor.create().setChunkno(chunkNumber).setFamily(entry.getFamily()).setKey(entry.getKey())
-        .setRetention(entry.getRetention()).setTimestamp(entry.getTimestamp());
+        .setRetention(entry.getRetention()).setTimestamp(entry.getTimestamp()).setMetadata(entry.getMetadata());
   }
 
 }

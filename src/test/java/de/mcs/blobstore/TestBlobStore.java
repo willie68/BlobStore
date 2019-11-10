@@ -32,6 +32,8 @@ import de.mcs.utils.Files;
 
 public class TestBlobStore {
 
+  private static final String MYMETADATVALUE = "mymetadatvalue";
+  private static final String MYMETADATA = "mymetadata";
   private static final boolean DELETE_STORE_BEFORE_TEST = true;
   private static final String FAMILY = "MCS_WKLAAS";
   private BlobStorage storage;
@@ -72,7 +74,8 @@ public class TestBlobStore {
     System.out.println("original hash: " + orgHash);
 
     String uuid = UUID.randomUUID().toString();
-    Metadata metadata = new Metadata().setContentLength(0).setContentType("text/simple").setRetention(1234567);
+    Metadata metadata = new Metadata().setContentLength(0).setContentType("text/simple").setRetention(1234567)
+        .setProperty(MYMETADATA, MYMETADATVALUE);
     try (InputStream in = new FileInputStream(outfile)) {
       storage.put(FAMILY, uuid, in, metadata);
     }
@@ -88,6 +91,7 @@ public class TestBlobStore {
     assertEquals(metadata.getContentType(), metadataStored.getContentType());
     assertEquals(buffer.length, metadataStored.getContentLength());
     assertEquals(metadata.getRetention(), metadataStored.getRetention());
+    assertEquals(metadata.getProperty(MYMETADATA), metadataStored.getProperty(MYMETADATA));
 
     Assertions.assertThrows(BlobException.class, () -> {
       InputStream noInputStream = storage.get(uuid);
