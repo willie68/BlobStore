@@ -3,8 +3,10 @@
  */
 package de.mcs.blobstore;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
@@ -18,11 +20,14 @@ import org.rocksdb.DBOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 
+import de.mcs.blobstore.BlobEntry.Status;
+import de.mcs.blobstore.utils.IDGenerator;
+import de.mcs.blobstore.utils.QueuedIDGenerator;
 import de.mcs.blobstore.utils.TransformerHelper;
 import de.mcs.blobstore.vlog.VLog;
-import de.mcs.blobstore.vlog.VLogDescriptor;
 import de.mcs.blobstore.vlog.VLogEntryInfo;
 import de.mcs.blobstore.vlog.VLogList;
+import de.mcs.utils.ByteArrayUtils;
 import de.mcs.utils.GsonUtils;
 
 /**
@@ -42,6 +47,8 @@ public class BlobStorageImpl implements BlobStorage {
   private RocksDB db;
   private VLogList vLogList;
 
+  private IDGenerator idGenerator;
+
   /**
    * creating a new BLobstorage in the desired path
    * 
@@ -55,6 +62,7 @@ public class BlobStorageImpl implements BlobStorage {
   }
 
   private void initBlobStorage() throws RocksDBException {
+    idGenerator = new QueuedIDGenerator(1000);
     vLogList = new VLogList(options);
     initRocksDB();
   }
@@ -86,51 +94,62 @@ public class BlobStorageImpl implements BlobStorage {
   }
 
   @Override
-  public void put(String family, String key, InputStream in, Metadata metadata) throws IOException {
+  public void put(String family, byte[] key, InputStream in, Metadata metadata) throws IOException {
+    if (key.length > 32) {
+      throw new BlobsDBException("key exceeding length of 32 bytes");
+    }
     BlobEntry blobEntry = new BlobEntry();
-    blobEntry.setFamily(family).setKey(key).setMetadata(metadata).setTimestamp(new Date().getTime())
-        .setRetention(metadata.getRetention());
+    blobEntry.setFamily(family).setKey(ByteArrayUtils.bytesAsHexString(key)).setMetadata(metadata)
+        .setTimestamp(new Date().getTime()).setRetention(metadata.getRetention()).setStatus(BlobEntry.Status.CREATED);
 
-    VLogDescriptor vlogDesc = TransformerHelper.transformBLobEntry2VLogDescriptor(blobEntry, 0);
     try (VLog vlog = vLogList.getNextAvailableVLog()) {
-      VLogEntryInfo vLogEntryInfo = vlog.put(vlogDesc, in);
-      ChunkEntry chunkEntry = TransformerHelper.transformVLogEntryInfo2ChunkEntry(vLogEntryInfo, 0, vlog.getName());
+      // writing binary data
+      VLogEntryInfo vLogEntryInfo = vlog.put(key, 1, in);
+      ChunkEntry chunkEntry = TransformerHelper.transformVLogEntryInfo2ChunkEntry(vLogEntryInfo, 1, vlog.getName());
       blobEntry.addChunkEntry(chunkEntry);
 
-      String json = GsonUtils.getJsonMapper().toJson(blobEntry);
+      String jsonBlobEntry = GsonUtils.getJsonMapper().toJson(blobEntry);
+      // writing metadata
+      ByteArrayInputStream jsonIn = new ByteArrayInputStream(jsonBlobEntry.getBytes(StandardCharsets.UTF_8));
+      VLogEntryInfo vLogEntryInfoJson = vlog.put(key, 0, jsonIn);
 
-      dbPut(family, key, json);
+      ChunkEntry chunkEntryJson = TransformerHelper.transformVLogEntryInfo2ChunkEntry(vLogEntryInfoJson, 0,
+          vlog.getName());
+      blobEntry.addChunkEntry(chunkEntryJson);
+
+      putDBBlobEntry(family, key, blobEntry);
     } catch (RocksDBException e) {
-      throw new BlobException(e);
+      throw new BlobsDBException(e);
     }
   }
 
   @Override
-  public InputStream get(String family, String key) throws IOException {
+  public InputStream get(String family, byte[] key) throws IOException {
     try {
       BlobEntry entry = getDBBlobEntry(family, key);
+      if ((entry == null) || entry.getStatus().equals(Status.DELETED)) {
+        throw new BlobsDBException(String.format("blob not found with key: %s#%s", family, key));
+      }
       List<ChunkEntry> chunks = entry.getChunks();
       if (chunks == null || chunks.size() == 0) {
-        throw new BlobException(String.format("chunks not found with key: %s#%s", family, key));
+        throw new BlobsDBException(String.format("chunks not found with key: %s#%s", family, key));
       }
       ChunkEntry chunk = chunks.get(0);
       if (isVLog(chunk)) {
-        try (VLog vlog = vLogList.getVLog(chunk)) {
-          return vlog.get(chunk.getStartBinary(), chunk.getBinarySize());
-        }
+        VLog vlog = vLogList.getVLog(chunk);
+        return vlog.get(chunk.getStartBinary(), chunk.getLength());
       }
       return null;
     } catch (RocksDBException e) {
-      throw new BlobException(e);
+      throw new BlobsDBException(e);
     }
   }
 
-  private BlobEntry getDBBlobEntry(String family, String key) throws RocksDBException, BlobException {
+  private BlobEntry getDBBlobEntry(String family, byte[] key) throws RocksDBException, BlobsDBException {
     String value = dbGet(family, key);
     if (value == null) {
-      throw new BlobException(String.format("blob not found with key: %s#%s", family, key));
+      return null;
     }
-
     BlobEntry entry = GsonUtils.getJsonMapper().fromJson(value, BlobEntry.class);
     return entry;
   }
@@ -139,85 +158,113 @@ public class BlobStorageImpl implements BlobStorage {
     return chunk.getContainerName().endsWith(".vlog");
   }
 
+  private void putDBBlobEntry(String family, byte[] key, BlobEntry blobEntry) throws RocksDBException {
+    String json = GsonUtils.getJsonMapper().toJson(blobEntry);
+
+    dbPut(family, key, json);
+  }
+
   @Override
-  public void put(String family, String key, int chunkNumber, InputStream in) throws IOException {
+  public void put(String family, byte[] key, int chunkNumber, InputStream in) throws IOException {
 
   }
 
   @Override
-  public void delete(String family, String key) throws IOException {
-
-  }
-
-  @Override
-  public boolean has(String family, String key) throws IOException {
+  public void delete(String family, byte[] key) throws IOException {
     try {
-      String value = dbGet(family, key);
-      return value != null;
+      BlobEntry blobEntry = getDBBlobEntry(family, key);
+      if (blobEntry == null || blobEntry.getStatus().equals(Status.DELETED)) {
+        throw new BlobsDBException(String.format("blob not found with key: %s#%s", family, key));
+      }
+      blobEntry.setStatus(Status.DELETED);
+      putDBBlobEntry(family, key, blobEntry);
     } catch (RocksDBException e) {
-      throw new BlobException(e);
+      throw new BlobsDBException(e);
+    }
+
+  }
+
+  @Override
+  public boolean has(String family, byte[] key) throws IOException {
+    try {
+      BlobEntry entry = getDBBlobEntry(family, key);
+      return ((entry != null) && !entry.getStatus().equals(Status.DELETED));
+    } catch (RocksDBException e) {
+      throw new BlobsDBException(e);
+    }
+  }
+
+  public boolean isDeleted(String family, byte[] key) throws BlobsDBException {
+    try {
+      BlobEntry entry = getDBBlobEntry(family, key);
+      if (entry == null) {
+        return true;
+      }
+      return entry.getStatus().equals(Status.DELETED);
+    } catch (RocksDBException e) {
+      throw new BlobsDBException(e);
     }
   }
 
   @Override
-  public void put(String key, InputStream in, Metadata metadata) throws IOException {
+  public void put(byte[] key, InputStream in, Metadata metadata) throws IOException {
     put(DEFAULT_COLUMN_FAMILY, key, in, metadata);
   }
 
   @Override
-  public void put(String key, int chunkNumber, InputStream in) throws IOException {
+  public void put(byte[] key, int chunkNumber, InputStream in) throws IOException {
     put(DEFAULT_COLUMN_FAMILY, key, chunkNumber, in);
   }
 
   @Override
-  public InputStream get(String key) throws IOException {
+  public InputStream get(byte[] key) throws IOException {
     return get(DEFAULT_COLUMN_FAMILY, key);
   }
 
   @Override
-  public void delete(String key) throws IOException {
+  public void delete(byte[] key) throws IOException {
     delete(DEFAULT_COLUMN_FAMILY, key);
   }
 
   @Override
-  public boolean has(String key) throws IOException {
+  public boolean has(byte[] key) throws IOException {
     return has(DEFAULT_COLUMN_FAMILY, key);
   }
 
   @Override
-  public Metadata getMetadata(String key) throws IOException {
+  public Metadata getMetadata(byte[] key) throws IOException {
     return getMetadata(DEFAULT_COLUMN_FAMILY, key);
   }
 
   @Override
-  public Metadata getMetadata(String family, String key) throws IOException {
+  public Metadata getMetadata(String family, byte[] key) throws IOException {
     try {
       BlobEntry blobEntry = getDBBlobEntry(family, key);
-      if (blobEntry == null) {
-        return null;
+      if (blobEntry == null || blobEntry.getStatus().equals(Status.DELETED)) {
+        throw new BlobsDBException(String.format("blob not found with key: %s#%s", family, key));
       }
       return blobEntry.getMetadata();
     } catch (RocksDBException e) {
-      throw new BlobException(e);
+      throw new BlobsDBException(e);
     }
   }
 
-  private void dbPut(String family, String key, String value) throws RocksDBException {
+  private void dbPut(String family, byte[] key, String value) throws RocksDBException {
     if (family == null) {
-      db.put(key.getBytes(), value.getBytes());
+      db.put(key, value.getBytes());
     } else {
       ColumnFamilyHandle columnFamilyHandle = getColumnFamilyHandle(family);
-      db.put(columnFamilyHandle, key.getBytes(), value.getBytes());
+      db.put(columnFamilyHandle, key, value.getBytes());
     }
   }
 
-  private String dbGet(String family, String key) throws RocksDBException {
+  private String dbGet(String family, byte[] key) throws RocksDBException {
     byte[] bs = null;
     if (family == null) {
-      bs = db.get(key.getBytes());
+      bs = db.get(key);
     } else {
       ColumnFamilyHandle columnFamilyHandle = getColumnFamilyHandle(family);
-      bs = db.get(columnFamilyHandle, key.getBytes());
+      bs = db.get(columnFamilyHandle, key);
     }
     if (bs != null) {
       return new String(bs);
@@ -225,12 +272,12 @@ public class BlobStorageImpl implements BlobStorage {
     return null;
   }
 
-  private void dbDel(String family, String key) throws RocksDBException {
+  private void dbDel(String family, byte[] key) throws RocksDBException {
     if (family == null) {
-      db.delete(key.getBytes());
+      db.delete(key);
     } else {
       ColumnFamilyHandle columnFamilyHandle = getColumnFamilyHandle(family);
-      db.delete(columnFamilyHandle, key.getBytes());
+      db.delete(columnFamilyHandle, key);
     }
   }
 
@@ -263,4 +310,5 @@ public class BlobStorageImpl implements BlobStorage {
     }
     vLogList.close();
   }
+
 }

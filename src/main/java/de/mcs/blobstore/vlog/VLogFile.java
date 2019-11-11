@@ -31,15 +31,15 @@ import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 
 import org.apache.commons.io.input.BoundedInputStream;
 
-import de.mcs.blobstore.BlobException;
+import de.mcs.blobstore.BlobsDBException;
+import de.mcs.blobstore.Options;
 import de.mcs.utils.ChannelTools;
-import de.mcs.utils.GsonUtils;
 import de.mcs.utils.HasherUtils;
 import de.mcs.utils.io.RandomAccessInputStream;
 import de.mcs.utils.logging.Logger;
@@ -54,9 +54,8 @@ import de.mcs.utils.logging.Logger;
 public class VLogFile implements Closeable {
 
   private static final String VLOG_VERSION = "1";
-  private static final int BUFFER_LENGTH = 8096;
-  private static final byte[] DOC_START = ("@@@" + VLOG_VERSION).getBytes(Charset.forName("UTF-8"));
-  private static final byte[] DOC_LIMITER = "#".getBytes(Charset.forName("UTF-8"));
+  private static final byte[] DOC_START = ("@@@" + VLOG_VERSION).getBytes(StandardCharsets.UTF_8);
+  private static final byte[] DOC_LIMITER = "#".getBytes(StandardCharsets.UTF_8);
   private static final int KEY_LENGTH = 16;
   private static final int HEADER_LENGTH = DOC_START.length + KEY_LENGTH + 4 + DOC_LIMITER.length;
   private Logger log = Logger.getLogger(this.getClass());
@@ -64,14 +63,16 @@ public class VLogFile implements Closeable {
   private File vLogFile;
   private FileChannel fileChannel;
   private RandomAccessFile writer;
+  private Options options;
 
   public static File getFilePathName(File path, int number) {
     String internalName = String.format("vlog_%04d.vlog", number);
     return new File(path, internalName);
   }
 
-  public VLogFile(File path, int number) throws IOException {
-    vLogFile = getFilePathName(path, number);
+  public VLogFile(Options options, int number) throws IOException {
+    this.options = options;
+    vLogFile = getFilePathName(new File(options.getPath()), number);
     init();
   }
 
@@ -108,8 +109,8 @@ public class VLogFile implements Closeable {
 
   @Override
   public void close() throws IOException {
-    fileChannel.force(true);
     if ((fileChannel != null) && fileChannel.isOpen()) {
+      fileChannel.force(true);
       fileChannel.close();
     }
     writer.close();
@@ -117,7 +118,7 @@ public class VLogFile implements Closeable {
 
   public VLogEntryInfo put(byte[] key, int chunknumber, InputStream in) throws IOException {
     if (key.length != KEY_LENGTH) {
-      throw new BlobException("Illegal key length.");
+      throw new BlobsDBException("Illegal key length.");
     }
     VLogEntryInfo info = new VLogEntryInfo();
     info.start = fileChannel.position();
@@ -153,42 +154,6 @@ public class VLogFile implements Closeable {
     return info;
   }
 
-  public VLogEntryInfo put(VLogDescriptor vlogDesc, InputStream in) throws IOException {
-    VLogEntryInfo info = new VLogEntryInfo();
-    info.start = fileChannel.position();
-    info.startDescription = info.start + DOC_START.length();
-
-    String json = GsonUtils.getJsonMapper().toJson(vlogDesc);
-    int bufSize = DOC_START.length() + json.length();
-    ByteBuffer buf = ByteBuffer.allocate(bufSize > BUFFER_LENGTH ? bufSize : BUFFER_LENGTH);
-    buf.put(DOC_START.getBytes());
-    // first write the description
-    buf.put(json.getBytes());
-    buf.flip();
-    fileChannel.write(buf);
-    info.startBinary = fileChannel.position();
-    // write the binary data
-    MessageDigest messageDigest = HasherUtils.Algorithm.SHA_256.getMessageDigest();
-    DigestInputStream digestInputStream = new DigestInputStream(in, messageDigest);
-    ReadableByteChannel inChannel = Channels.newChannel(digestInputStream);
-    ChannelTools.fastChannelCopy(inChannel, fileChannel);
-    info.startPostfix = fileChannel.position();
-    byte[] digest = messageDigest.digest();
-    info.hash = HasherUtils.bytesAsHexString(digest);
-    // write the postfix
-    VLogPostFix postFix = new VLogPostFix();
-    postFix.length = info.startPostfix - info.startBinary;
-    postFix.hash = digest;
-    json = GsonUtils.getJsonMapper().toJson(postFix);
-    buf.clear();
-    buf.put(json.getBytes());
-    buf.flip();
-    fileChannel.write(buf);
-    info.end = fileChannel.position();
-    fileChannel.force(true);
-    return info;
-  }
-
   public InputStream get(long offset, long size) throws IOException {
     return new BoundedInputStream(new RandomAccessInputStream(vLogFile, offset), size);
   }
@@ -198,6 +163,9 @@ public class VLogFile implements Closeable {
   }
 
   public boolean isAvailbleForWriting() {
+    if (getSize() > options.getVlogMaxSize()) {
+      return false;
+    }
     return true;
   }
 }

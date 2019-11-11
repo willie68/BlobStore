@@ -3,7 +3,7 @@
  */
 package de.mcs.blobstore.vlog;
 
-import de.mcs.utils.HasherUtils;
+import de.mcs.utils.ByteArrayUtils;
 
 /**
  * @author w.klaas
@@ -59,7 +59,7 @@ public class VLogEntryInfo {
   @Override
   public String toString() {
     return String.format("start: %d, bin: %d, post: %d, end: %d, hash: %s", start, startBinary, startPostfix, end,
-        HasherUtils.bytesAsHexString(hash));
+        ByteArrayUtils.bytesAsHexString(hash));
   }
 
 }

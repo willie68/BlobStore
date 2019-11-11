@@ -23,7 +23,7 @@ package de.mcs.blobstore.vlog;
 
 import java.nio.ByteBuffer;
 
-import de.mcs.utils.HasherUtils;
+import de.mcs.utils.ByteArrayUtils;
 
 /**
  * @author wklaa_000
@@ -39,7 +39,7 @@ public class VLogPostFix {
   }
 
   String getHash() {
-    return HasherUtils.bytesAsHexString(hash);
+    return ByteArrayUtils.bytesAsHexString(hash);
   }
 
   ByteBuffer getBytes() {

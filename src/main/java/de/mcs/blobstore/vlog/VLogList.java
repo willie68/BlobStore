@@ -8,7 +8,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.log4j.Logger;
 
-import de.mcs.blobstore.BlobException;
+import de.mcs.blobstore.BlobsDBException;
 import de.mcs.blobstore.ChunkEntry;
 import de.mcs.blobstore.Options;
 
@@ -17,7 +17,7 @@ public class VLogList {
   private Logger log = Logger.getLogger(this.getClass());
 
   private Options options;
-  private Map<String, VLogFile> list;
+  private Map<String, VLog> list;
   private ReentrantLock writeLock = new ReentrantLock();
 
   public VLogList(Options options) {
@@ -28,51 +28,52 @@ public class VLogList {
   public VLog getNextAvailableVLog() throws IOException {
     writeLock.lock();
     try {
-      VLogFile vLogFile = null;
-      for (VLogFile file : list.values()) {
-        if (file.isAvailbleForWriting()) {
-          vLogFile = file;
+      VLog vLog = null;
+      for (VLog vlog : list.values()) {
+        if (vlog.isAvailbleForWriting()) {
+          vLog = vlog;
         }
       }
-      if (vLogFile == null) {
+      if (vLog == null) {
         int i = 0;
         File file = null;
         do {
-          file = VLogFile.getFilePathName(new File(options.getPath()), i++);
+          i++;
+          file = VLogFile.getFilePathName(new File(options.getPath()), i);
         } while (file.exists());
-        vLogFile = new VLogFile(new File(options.getPath()), i);
-        list.put(vLogFile.getName(), vLogFile);
+        VLogFile vLogFile = new VLogFile(options, i);
+        vLog = VLog.wrap(vLogFile);
+        vLog.forWriting();
+        list.put(vLog.getName(), vLog);
       }
-      VLog vlog = VLog.wrap(vLogFile);
-      vlog.forWriting();
-      return vlog;
+      return vLog;
     } finally {
       writeLock.unlock();
     }
   }
 
-  public VLog getVLog(ChunkEntry chunk) throws BlobException {
-    VLogFile vLogFile = list.get(chunk.getContainerName());
-    if (vLogFile == null) {
+  public VLog getVLog(ChunkEntry chunk) throws BlobsDBException {
+    VLog vLog = list.get(chunk.getContainerName());
+    if (vLog == null) {
       File file = new File(new File(options.getPath()), chunk.getContainerName());
       if (!file.exists()) {
-        throw new BlobException(String.format("vlog not found: %s", file.getName()));
+        throw new BlobsDBException(String.format("vlog not found: %s", file.getName()));
       }
       try {
-        vLogFile = new VLogFile(file);
+        VLogFile vLogFile = new VLogFile(file);
+        vLog = VLog.wrap(vLogFile);
       } catch (IOException e) {
-        throw new BlobException(e);
+        throw new BlobsDBException(e);
       }
     }
-    VLog vlog = VLog.wrap(vLogFile);
-    vlog.forReading();
-    return vlog;
+    vLog.forReading();
+    return vLog;
   }
 
   public void close() {
-    for (VLogFile vLogFile : list.values()) {
+    for (VLog vLog : list.values()) {
       try {
-        vLogFile.close();
+        vLog.closeFile();
       } catch (IOException e) {
         log.error(e);
       }

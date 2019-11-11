@@ -48,7 +48,7 @@ public class QueuedIDGenerator implements IDGenerator {
   }
 
   @Override
-  public ByteBuffer getByteID() {
+  public byte[] getByteID() {
     UUID id = queue.poll();
     if (id == null) {
       errorCount++;
@@ -57,7 +57,7 @@ public class QueuedIDGenerator implements IDGenerator {
     ByteBuffer buf = ByteBuffer.allocate(16);
     buf.putLong(id.getMostSignificantBits());
     buf.putLong(id.getLeastSignificantBits());
-    return buf;
+    return buf.array();
   }
 
   public int getErrorCount() {

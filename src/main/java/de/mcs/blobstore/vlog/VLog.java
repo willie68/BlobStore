@@ -24,6 +24,7 @@ public class VLog implements Closeable {
   private Lock readLock = null;
 
   private VLog() {
+    writeLock = new ReentrantLock();
   }
 
   private VLog setVLogFile(VLogFile vLogFile) {
@@ -31,9 +32,8 @@ public class VLog implements Closeable {
     return this;
   }
 
-  public void forWriting() {
-    writeLock = new ReentrantLock();
-    writeLock.lock();
+  public boolean forWriting() {
+    return writeLock.tryLock();
   }
 
   @Override
@@ -54,8 +54,8 @@ public class VLog implements Closeable {
     return vLogFile.getName();
   }
 
-  public VLogEntryInfo put(VLogDescriptor vlogDesc, InputStream in) throws IOException {
-    return getvLogFile().put(vlogDesc, in);
+  public VLogEntryInfo put(byte[] key, int chunk, InputStream in) throws IOException {
+    return getvLogFile().put(key, chunk, in);
   }
 
   public void forReading() {
@@ -63,6 +63,14 @@ public class VLog implements Closeable {
 
   public InputStream get(long startBinary, long binarySize) throws IOException {
     return vLogFile.get(startBinary, binarySize);
+  }
+
+  public boolean isAvailbleForWriting() {
+    return vLogFile.isAvailbleForWriting() && forWriting();
+  }
+
+  public void closeFile() throws IOException {
+    vLogFile.close();
   }
 
 }

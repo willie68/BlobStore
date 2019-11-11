@@ -13,10 +13,8 @@ public class ChunkEntry {
   private int chunkNumber;
   private String containerName;
   private long start;
-  private long startDescription;
   private long startBinary;
-  private long startPostfix;
-  private long end;
+  private long length;
   private String hash;
 
   /**
@@ -27,7 +25,8 @@ public class ChunkEntry {
   }
 
   /**
-   * @param chunkNumber the chunkNumber to set
+   * @param chunkNumber
+   *          the chunkNumber to set
    */
   public ChunkEntry setChunkNumber(int chunkNumber) {
     this.chunkNumber = chunkNumber;
@@ -42,7 +41,8 @@ public class ChunkEntry {
   }
 
   /**
-   * @param containerName the containerName to set
+   * @param containerName
+   *          the containerName to set
    */
   public ChunkEntry setContainerName(String containerName) {
     this.containerName = containerName;
@@ -57,25 +57,11 @@ public class ChunkEntry {
   }
 
   /**
-   * @param start the start to set
+   * @param start
+   *          the start to set
    */
   public ChunkEntry setStart(long start) {
     this.start = start;
-    return this;
-  }
-
-  /**
-   * @return the startDescription
-   */
-  public long getStartDescription() {
-    return startDescription;
-  }
-
-  /**
-   * @param startDescription the startDescription to set
-   */
-  public ChunkEntry setStartDescription(long startDescription) {
-    this.startDescription = startDescription;
     return this;
   }
 
@@ -87,40 +73,11 @@ public class ChunkEntry {
   }
 
   /**
-   * @param startBinary the startBinary to set
+   * @param startBinary
+   *          the startBinary to set
    */
   public ChunkEntry setStartBinary(long startBinary) {
     this.startBinary = startBinary;
-    return this;
-  }
-
-  /**
-   * @return the startPostfix
-   */
-  public long getStartPostfix() {
-    return startPostfix;
-  }
-
-  /**
-   * @param startPostfix the startPostfix to set
-   */
-  public ChunkEntry setStartPostfix(long startPostfix) {
-    this.startPostfix = startPostfix;
-    return this;
-  }
-
-  /**
-   * @return the end
-   */
-  public long getEnd() {
-    return end;
-  }
-
-  /**
-   * @param end the end to set
-   */
-  public ChunkEntry setEnd(long end) {
-    this.end = end;
     return this;
   }
 
@@ -132,24 +89,13 @@ public class ChunkEntry {
   }
 
   /**
-   * @param hash the hash to set
-   * @return 
+   * @param hash
+   *          the hash to set
+   * @return
    */
   public ChunkEntry setHash(String hash) {
     this.hash = hash;
     return this;
-  }
-
-  public long getDescriptionSize() {
-    return startBinary - startDescription;
-  }
-
-  public long getBinarySize() {
-    return startPostfix - startBinary;
-  }
-
-  public long getPostfixSize() {
-    return end - startPostfix;
   }
 
   @Override
@@ -159,6 +105,21 @@ public class ChunkEntry {
 
   public String toJsonString() {
     return GsonUtils.getJsonMapper().toJson(this);
+  }
+
+  /**
+   * @return the length
+   */
+  public long getLength() {
+    return length;
+  }
+
+  /**
+   * @param length
+   *          the length to set
+   */
+  public void setLength(long length) {
+    this.length = length;
   }
 
 }

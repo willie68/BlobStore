@@ -31,13 +31,17 @@ import de.mcs.utils.GsonUtils;
  *
  */
 public class BlobEntry {
+  enum Status {
+    CREATED, DELETED
+  }
+
   private String key;
   private String family;
   private long retention;
   private long timestamp;
   private Metadata metadata;
   private long length;
-  private String hash;
+  private int status;
 
   private List<ChunkEntry> chunks;
 
@@ -53,7 +57,8 @@ public class BlobEntry {
   }
 
   /**
-   * @param key the key to set
+   * @param key
+   *          the key to set
    */
   public BlobEntry setKey(String key) {
     this.key = key;
@@ -68,7 +73,8 @@ public class BlobEntry {
   }
 
   /**
-   * @param family the family to set
+   * @param family
+   *          the family to set
    */
   public BlobEntry setFamily(String family) {
     this.family = family;
@@ -83,7 +89,8 @@ public class BlobEntry {
   }
 
   /**
-   * @param retention the retention to set
+   * @param retention
+   *          the retention to set
    */
   public BlobEntry setRetention(long retention) {
     this.retention = retention;
@@ -98,7 +105,8 @@ public class BlobEntry {
   }
 
   /**
-   * @param timestamp the timestamp to set
+   * @param timestamp
+   *          the timestamp to set
    */
   public BlobEntry setTimestamp(long timestamp) {
     this.timestamp = timestamp;
@@ -113,7 +121,8 @@ public class BlobEntry {
   }
 
   /**
-   * @param metadata the metadata to set
+   * @param metadata
+   *          the metadata to set
    */
   public BlobEntry setMetadata(Metadata metadata) {
     this.metadata = metadata;
@@ -128,25 +137,11 @@ public class BlobEntry {
   }
 
   /**
-   * @param length the length to set
+   * @param length
+   *          the length to set
    */
   public BlobEntry setLength(long length) {
     this.length = length;
-    return this;
-  }
-
-  /**
-   * @return the hash
-   */
-  public String getHash() {
-    return hash;
-  }
-
-  /**
-   * @param hash the hash to set
-   */
-  public BlobEntry setHash(String hash) {
-    this.hash = hash;
     return this;
   }
 
@@ -158,8 +153,9 @@ public class BlobEntry {
   }
 
   /**
-   * @param chunkno the chunkno to set
-   * @return 
+   * @param chunkno
+   *          the chunkno to set
+   * @return
    */
   public BlobEntry setChunks(List<ChunkEntry> chunkno) {
     this.chunks = chunkno;
@@ -168,7 +164,26 @@ public class BlobEntry {
 
   public void addChunkEntry(ChunkEntry chunkEntry) {
     chunks.add(chunkEntry);
-    metadata.setContentLength(metadata.getContentLength() + chunkEntry.getBinarySize());
+    if (chunkEntry.getChunkNumber() > 0) {
+      metadata.setContentLength(metadata.getContentLength() + chunkEntry.getLength());
+    }
+  }
+
+  /**
+   * @return the state
+   */
+  public Status getStatus() {
+    return Status.values()[status];
+  }
+
+  /**
+   * @param state
+   *          the state to set
+   * @return
+   */
+  public BlobEntry setStatus(Status status) {
+    this.status = status.ordinal();
+    return this;
   }
 
   @Override

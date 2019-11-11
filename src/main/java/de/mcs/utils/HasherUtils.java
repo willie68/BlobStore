@@ -80,7 +80,7 @@ public class HasherUtils {
    *           On failure!
    */
   public static String hash(Algorithm type, Path file) throws IOException {
-    return bytesAsHexString(hash(type.getMessageDigest(), file));
+    return ByteArrayUtils.bytesAsHexString(hash(type.getMessageDigest(), file));
   }
 
   /**
@@ -95,7 +95,7 @@ public class HasherUtils {
    *           On failure!
    */
   public static String hash(Algorithm type, InputStream input) throws IOException {
-    return bytesAsHexString(hash(type.getMessageDigest(), input));
+    return ByteArrayUtils.bytesAsHexString(hash(type.getMessageDigest(), input));
   }
 
   /**
@@ -124,32 +124,6 @@ public class HasherUtils {
     while ((nread = input.read(dataBytes)) != -1)
       digest.update(dataBytes, 0, nread);
     return digest.digest();
-  }
-
-  /**
-   * 
-   * @param bytes
-   * @return
-   * @throws IOException
-   */
-  public static String bytesAsHexString(byte[] bytes) {
-    return getHex(bytes);
-  }
-
-  private static final char[] DIGITS_UPPER = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D',
-      'E', 'F' };
-
-  public static String getHex(byte[] data) {
-    if (data == null) {
-      return null;
-    }
-    final int l = data.length;
-    final char[] out = new char[l << 1];
-    for (int i = 0, j = 0; i < l; i++) {
-      out[j++] = DIGITS_UPPER[(data[i] & 0xF0) >> 4];
-      out[j++] = DIGITS_UPPER[(data[i] & 0x0F)];
-    }
-    return new String(out);
   }
 
   public static void main(String[] args) {

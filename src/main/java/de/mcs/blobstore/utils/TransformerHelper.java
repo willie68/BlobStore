@@ -21,10 +21,9 @@
  */
 package de.mcs.blobstore.utils;
 
-import de.mcs.blobstore.BlobEntry;
 import de.mcs.blobstore.ChunkEntry;
-import de.mcs.blobstore.vlog.VLogDescriptor;
 import de.mcs.blobstore.vlog.VLogEntryInfo;
+import de.mcs.utils.ByteArrayUtils;
 
 /**
  * @author wklaa_000
@@ -35,15 +34,10 @@ public class TransformerHelper {
   public static ChunkEntry transformVLogEntryInfo2ChunkEntry(VLogEntryInfo info, int chunkNumber,
       String containerName) {
     ChunkEntry chunkEntry = new ChunkEntry();
-    chunkEntry.setChunkNumber(chunkNumber).setContainerName(containerName).setEnd(info.getEnd()).setHash(info.getHash())
-        .setStart(info.getStart()).setStartBinary(info.getStartBinary()).setStartDescription(info.getStartBinary())
-        .setStartDescription(info.getStartDescription()).setStartPostfix(info.getStartPostfix());
+    chunkEntry.setChunkNumber(chunkNumber).setContainerName(containerName)
+        .setHash(ByteArrayUtils.bytesAsHexString(info.getHash())).setStart(info.getStart())
+        .setStartBinary(info.getStartBinary()).setLength(info.getBinarySize());
     return chunkEntry;
-  }
-
-  public static VLogDescriptor transformBLobEntry2VLogDescriptor(BlobEntry entry, int chunkNumber) {
-    return VLogDescriptor.create().setChunkno(chunkNumber).setFamily(entry.getFamily()).setKey(entry.getKey())
-        .setRetention(entry.getRetention()).setTimestamp(entry.getTimestamp()).setMetadata(entry.getMetadata());
   }
 
 }

@@ -2,7 +2,7 @@
  * MCS Media Computer Software
  * Copyright 2019 by Wilfried Klaas
  * Project: BlobStore
- * File: BlobException.java
+ * File: BlobsDBException.java
  * EMail: W.Klaas@gmx.de
  * Created: 09.11.2019 wklaa_000
  * 
@@ -27,19 +27,19 @@ import java.io.IOException;
  * @author wklaa_000
  *
  */
-public class BlobException extends IOException {
+public class BlobsDBException extends IOException {
 
   /**
    * 
    */
-  public BlobException() {
+  public BlobsDBException() {
     // TODO Auto-generated constructor stub
   }
 
   /**
    * @param message
    */
-  public BlobException(String message) {
+  public BlobsDBException(String message) {
     super(message);
     // TODO Auto-generated constructor stub
   }
@@ -47,7 +47,7 @@ public class BlobException extends IOException {
   /**
    * @param cause
    */
-  public BlobException(Throwable cause) {
+  public BlobsDBException(Throwable cause) {
     super(cause);
     // TODO Auto-generated constructor stub
   }
@@ -56,7 +56,7 @@ public class BlobException extends IOException {
    * @param message
    * @param cause
    */
-  public BlobException(String message, Throwable cause) {
+  public BlobsDBException(String message, Throwable cause) {
     super(message, cause);
     // TODO Auto-generated constructor stub
   }
