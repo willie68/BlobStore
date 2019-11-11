@@ -6,6 +6,8 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import com.google.common.primitives.Ints;
+
 import de.mcs.jmeasurement.MeasureFactory;
 import de.mcs.jmeasurement.Monitor;
 import de.mcs.utils.HasherUtils;
@@ -38,11 +40,12 @@ class TestMe {
   void test2() {
     System.out.println("@@@@".getBytes(Charset.forName("UTF-8")).length);
 
-    ByteBuffer buf = ByteBuffer.allocate(15);
+    ByteBuffer buf = ByteBuffer.allocate(16);
     long leastSignificantBits = UUID.randomUUID().getLeastSignificantBits();
     long mostSignificantBits = UUID.randomUUID().getMostSignificantBits();
     buf.putLong(mostSignificantBits);
     buf.putLong(leastSignificantBits);
     System.out.println(buf.array().length);
+    System.out.println(Ints.toByteArray(1).length);
   }
 }

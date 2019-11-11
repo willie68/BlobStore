@@ -3,30 +3,24 @@
  */
 package de.mcs.blobstore.vlog;
 
+import de.mcs.utils.HasherUtils;
+
 /**
  * @author w.klaas
  *
  */
 public class VLogEntryInfo {
   long start;
-  long startDescription;
   long startBinary;
   long startPostfix;
   long end;
-  String hash;
+  byte[] hash;
 
   /**
    * @return the start
    */
   public long getStart() {
     return start;
-  }
-
-  /**
-   * @return the startDescription
-   */
-  public long getStartDescription() {
-    return startDescription;
   }
 
   /**
@@ -46,12 +40,8 @@ public class VLogEntryInfo {
   /**
    * @return the hash
    */
-  public String getHash() {
+  public byte[] getHash() {
     return hash;
-  }
-
-  public long getDescriptionSize() {
-    return startBinary - startDescription;
   }
 
   public long getBinarySize() {
@@ -68,8 +58,8 @@ public class VLogEntryInfo {
 
   @Override
   public String toString() {
-    return String.format("start: %d, desc: %d, bin: %d, post: %d, end: %d, hash: %s", start, startDescription,
-        startBinary, startPostfix, end, hash);
+    return String.format("start: %d, bin: %d, post: %d, end: %d, hash: %s", start, startBinary, startPostfix, end,
+        HasherUtils.bytesAsHexString(hash));
   }
 
 }

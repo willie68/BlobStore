@@ -54,7 +54,7 @@ public class QueuedIDGenerator implements IDGenerator {
       errorCount++;
       id = UUID.randomUUID();
     }
-    ByteBuffer buf = ByteBuffer.allocateDirect(16);
+    ByteBuffer buf = ByteBuffer.allocate(16);
     buf.putLong(id.getMostSignificantBits());
     buf.putLong(id.getLeastSignificantBits());
     return buf;

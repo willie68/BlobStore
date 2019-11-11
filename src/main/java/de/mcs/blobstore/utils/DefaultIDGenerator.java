@@ -20,7 +20,7 @@ public class DefaultIDGenerator implements IDGenerator {
   @Override
   public ByteBuffer getByteID() {
     UUID id = UUID.randomUUID();
-    ByteBuffer buf = ByteBuffer.allocateDirect(16);
+    ByteBuffer buf = ByteBuffer.allocate(16);
     buf.putLong(id.getMostSignificantBits());
     buf.putLong(id.getLeastSignificantBits());
     return buf;

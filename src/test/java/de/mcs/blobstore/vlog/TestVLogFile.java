@@ -58,11 +58,14 @@ class TestVLogFile {
   @Test
   void testSingleBin() throws IOException, NoSuchAlgorithmException {
     try (VLogFile vLogFile = new VLogFile(filePath, 1)) {
-      byte[] buffer = new byte[1024 * 1024];
-      new Random().nextBytes(buffer);
+      byte[] buffer = new byte[128];
+      for (int i = 0; i < buffer.length; i++) {
+        buffer[i] = (byte) ('0' + (i % 10));
+      }
+      // new Random().nextBytes(buffer);
       ByteArrayInputStream in = new ByteArrayInputStream(buffer);
       ByteBuffer byteID = ids.getByteID();
-      VLogEntryInfo info = vLogFile.put(byteID.array(), in);
+      VLogEntryInfo info = vLogFile.put(byteID.array(), 1, in);
 
       System.out.println(info.toString());
 
@@ -74,18 +77,19 @@ class TestVLogFile {
       VLogEntryInfo info) throws IOException {
     in.reset();
     ByteArrayOutputStream out = new ByteArrayOutputStream(1024 * 1024 * 2);
-    Monitor m = MeasureFactory.start("readDesc");
-    try {
-      try (InputStream input = vLogFile.get(info.startDescription, info.getDescriptionSize())) {
-        assertNotNull(input);
-        IOUtils.copy(input, out);
-      }
-    } finally {
-      m.stop();
-    }
+    // Monitor m = MeasureFactory.start("readDesc");
+    // try {
+    // try (InputStream input = vLogFile.get(info.startDescription,
+    // info.getDescriptionSize())) {
+    // assertNotNull(input);
+    // IOUtils.copy(input, out);
+    // }
+    // } finally {
+    // m.stop();
+    // }
 
     out.reset();
-    m = MeasureFactory.start("readBin");
+    Monitor m = MeasureFactory.start("readBin");
     try {
       try (InputStream input = vLogFile.get(info.startBinary, info.getBinarySize())) {
         assertNotNull(input);
@@ -109,8 +113,7 @@ class TestVLogFile {
       m.stop();
     }
 
-    inputStream = new ByteArrayInputStream(out.toByteArray());
-    VLogPostFix vLogPostFix = GsonUtils.getJsonMapper().fromJson(new InputStreamReader(inputStream), VLogPostFix.class);
+    VLogPostFix vLogPostFix = VLogPostFix.fromBytes(out.toByteArray());
     assertNotNull(vLogPostFix);
     assertEquals(info.getHash(), vLogPostFix.hash);
     assertEquals(buffer.length, vLogPostFix.length);

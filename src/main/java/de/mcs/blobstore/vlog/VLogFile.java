@@ -53,8 +53,12 @@ import de.mcs.utils.logging.Logger;
  */
 public class VLogFile implements Closeable {
 
+  private static final String VLOG_VERSION = "1";
   private static final int BUFFER_LENGTH = 8096;
-  private static final String DOC_START = "@@@@";
+  private static final byte[] DOC_START = ("@@@" + VLOG_VERSION).getBytes(Charset.forName("UTF-8"));
+  private static final byte[] DOC_LIMITER = "#".getBytes(Charset.forName("UTF-8"));
+  private static final int KEY_LENGTH = 16;
+  private static final int HEADER_LENGTH = DOC_START.length + KEY_LENGTH + 4 + DOC_LIMITER.length;
   private Logger log = Logger.getLogger(this.getClass());
   private String internalName;
   private File vLogFile;
@@ -111,20 +115,23 @@ public class VLogFile implements Closeable {
     writer.close();
   }
 
-  public VLogEntryInfo put(byte[] key, InputStream in) throws IOException {
-    if (key.length != 32) {
+  public VLogEntryInfo put(byte[] key, int chunknumber, InputStream in) throws IOException {
+    if (key.length != KEY_LENGTH) {
       throw new BlobException("Illegal key length.");
     }
     VLogEntryInfo info = new VLogEntryInfo();
     info.start = fileChannel.position();
-    info.startDescription = info.start + 32;
-    ByteBuffer header = ByteBuffer.allocate(36);
+    ByteBuffer header = ByteBuffer.allocateDirect(HEADER_LENGTH);
 
-    header.put(DOC_START.getBytes(Charset.forName("UTF-8")));
+    header.rewind();
+    header.put(DOC_START);
     header.put(key);
+    header.putInt(chunknumber);
+    header.put(DOC_LIMITER);
     header.flip();
     fileChannel.write(header);
     info.startBinary = fileChannel.position();
+
     // write the binary data
     MessageDigest messageDigest = HasherUtils.Algorithm.SHA_256.getMessageDigest();
     DigestInputStream digestInputStream = new DigestInputStream(in, messageDigest);
@@ -133,12 +140,14 @@ public class VLogFile implements Closeable {
 
     byte[] digest = messageDigest.digest();
     info.startPostfix = fileChannel.position();
-    info.hash = HasherUtils.bytesAsHexString(digest);
+    info.hash = digest;
     // write the postfix
     VLogPostFix postFix = new VLogPostFix();
     postFix.length = info.startPostfix - info.startBinary;
     postFix.hash = digest;
+
     fileChannel.write(postFix.getBytes());
+
     info.end = fileChannel.position();
     fileChannel.force(true);
     return info;

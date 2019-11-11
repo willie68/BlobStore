@@ -33,14 +33,28 @@ public class VLogPostFix {
   long length;
   byte[] hash;
 
+  VLogPostFix() {
+    length = 0;
+    hash = new byte[32];
+  }
+
   String getHash() {
     return HasherUtils.bytesAsHexString(hash);
   }
 
   ByteBuffer getBytes() {
-    ByteBuffer buffer = ByteBuffer.allocateDirect(40);
+    ByteBuffer buffer = ByteBuffer.allocateDirect(8 + hash.length);
     buffer.putLong(length);
     buffer.put(hash);
+    buffer.flip();
     return buffer;
+  }
+
+  public static VLogPostFix fromBytes(byte[] byteArray) {
+    ByteBuffer buffer = ByteBuffer.wrap(byteArray);
+    VLogPostFix vLogPostFix = new VLogPostFix();
+    vLogPostFix.length = buffer.getLong();
+    buffer.get(vLogPostFix.hash);
+    return vLogPostFix;
   }
 }
