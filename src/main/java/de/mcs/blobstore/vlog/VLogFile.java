@@ -56,8 +56,10 @@ public class VLogFile implements Closeable {
   private static final String VLOG_VERSION = "1";
   private static final byte[] DOC_START = ("@@@" + VLOG_VERSION).getBytes(StandardCharsets.UTF_8);
   private static final byte[] DOC_LIMITER = "#".getBytes(StandardCharsets.UTF_8);
-  private static final int KEY_LENGTH = 16;
-  private static final int HEADER_LENGTH = DOC_START.length + KEY_LENGTH + 4 + DOC_LIMITER.length;
+  private static final int KEY_MAX_LENGTH = 256;
+  // because of the headerstructure, 4 bytes DOC_START + 1 byte KEY_LENGTH + KEY
+  // itself + 4 bytes Chunknumber + 1 byte DOC_LIMITER
+  private static final int HEADER_MAX_LENGTH = DOC_START.length + 1 + KEY_MAX_LENGTH + 4 + DOC_LIMITER.length;
   private Logger log = Logger.getLogger(this.getClass());
   private String internalName;
   private File vLogFile;
@@ -117,15 +119,17 @@ public class VLogFile implements Closeable {
   }
 
   public VLogEntryInfo put(byte[] key, int chunknumber, InputStream in) throws IOException {
-    if (key.length != KEY_LENGTH) {
+    if (key.length > KEY_MAX_LENGTH) {
       throw new BlobsDBException("Illegal key length.");
     }
+    byte keyLength = (byte) key.length;
     VLogEntryInfo info = new VLogEntryInfo();
     info.start = fileChannel.position();
-    ByteBuffer header = ByteBuffer.allocateDirect(HEADER_LENGTH);
+    ByteBuffer header = ByteBuffer.allocateDirect(HEADER_MAX_LENGTH);
 
     header.rewind();
     header.put(DOC_START);
+    header.put(keyLength);
     header.put(key);
     header.putInt(chunknumber);
     header.put(DOC_LIMITER);

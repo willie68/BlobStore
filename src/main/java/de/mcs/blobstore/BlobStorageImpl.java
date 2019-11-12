@@ -11,6 +11,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.log4j.Logger;
 import org.rocksdb.ColumnFamilyDescriptor;
@@ -38,6 +40,8 @@ public class BlobStorageImpl implements BlobStorage {
 
   private static final String DEFAULT_COLUMN_FAMILY = new String(RocksDB.DEFAULT_COLUMN_FAMILY);
 
+  private static final int KEY_MAX_LENGTH = 255;
+
   private Logger log = Logger.getLogger(this.getClass());
   private Options options;
 
@@ -49,6 +53,8 @@ public class BlobStorageImpl implements BlobStorage {
 
   private IDGenerator idGenerator;
 
+  private Lock dbFamilyLock;
+
   /**
    * creating a new BLobstorage in the desired path
    * 
@@ -59,6 +65,7 @@ public class BlobStorageImpl implements BlobStorage {
   public BlobStorageImpl(Options options) throws RocksDBException {
     this.options = options;
     initBlobStorage();
+    dbFamilyLock = new ReentrantLock();
   }
 
   private void initBlobStorage() throws RocksDBException {
@@ -95,8 +102,8 @@ public class BlobStorageImpl implements BlobStorage {
 
   @Override
   public void put(String family, byte[] key, InputStream in, Metadata metadata) throws IOException {
-    if (key.length > 32) {
-      throw new BlobsDBException("key exceeding length of 32 bytes");
+    if (key.length > KEY_MAX_LENGTH) {
+      throw new BlobsDBException(String.format("key exceeding length of %d bytes", KEY_MAX_LENGTH));
     }
     BlobEntry blobEntry = new BlobEntry();
     blobEntry.setFamily(family).setKey(ByteArrayUtils.bytesAsHexString(key)).setMetadata(metadata)
@@ -282,19 +289,32 @@ public class BlobStorageImpl implements BlobStorage {
   }
 
   private ColumnFamilyHandle getColumnFamilyHandle(String family) throws RocksDBException {
+    ColumnFamilyHandle columnFamilyHandle = getFamilyHandle(family);
+    if (columnFamilyHandle == null) {
+      dbFamilyLock.lock();
+      try {
+        columnFamilyHandle = getFamilyHandle(family);
+        if (columnFamilyHandle == null) {
+          try (ColumnFamilyOptions cfOpts = new ColumnFamilyOptions().optimizeUniversalStyleCompaction()) {
+            ColumnFamilyDescriptor columnFamilyDescriptor = new ColumnFamilyDescriptor(family.getBytes(), cfOpts);
+            cfDescriptors.add(columnFamilyDescriptor);
+            columnFamilyHandle = db.createColumnFamily(columnFamilyDescriptor);
+            columnFamilyHandleList.add(columnFamilyHandle);
+          }
+        }
+      } finally {
+        dbFamilyLock.unlock();
+      }
+    }
+    return columnFamilyHandle;
+  }
+
+  private ColumnFamilyHandle getFamilyHandle(String family) throws RocksDBException {
     ColumnFamilyHandle columnFamilyHandle = null;
     for (ColumnFamilyHandle handle : columnFamilyHandleList) {
       if (Arrays.equals(handle.getName(), family.getBytes())) {
         columnFamilyHandle = handle;
         break;
-      }
-    }
-    if (columnFamilyHandle == null) {
-      try (ColumnFamilyOptions cfOpts = new ColumnFamilyOptions().optimizeUniversalStyleCompaction()) {
-        ColumnFamilyDescriptor columnFamilyDescriptor = new ColumnFamilyDescriptor(family.getBytes(), cfOpts);
-        cfDescriptors.add(columnFamilyDescriptor);
-        columnFamilyHandle = db.createColumnFamily(columnFamilyDescriptor);
-        columnFamilyHandleList.add(columnFamilyHandle);
       }
     }
     return columnFamilyHandle;

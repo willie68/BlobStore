@@ -13,8 +13,12 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.log4j.Logger;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -33,6 +37,9 @@ public class TestBlobStore {
   private static final String MYMETADATA = "mymetadata";
   private static final boolean DELETE_STORE_BEFORE_TEST = true;
   private static final String FAMILY = "MCS_WKLAAS";
+
+  private Logger log = Logger.getLogger(this.getClass());
+
   private BlobStorage storage;
   private QueuedIDGenerator ids;
   private File filePath;
@@ -149,12 +156,12 @@ public class TestBlobStore {
 
   @Test
   public void test1000() throws Exception {
-    byte[] buffer = new byte[1024 * 1024 * 10];
+    byte[] buffer = new byte[1024 * 1024 * 1];
 
     Map<String, Metadata> myIds = new HashMap<>();
 
     System.out.println("writing");
-    for (int i = 1; i <= 5000; i++) {
+    for (int i = 1; i <= 1000; i++) {
       new Random(i).nextBytes(buffer);
       ByteArrayInputStream in = new ByteArrayInputStream(buffer);
 
@@ -176,6 +183,95 @@ public class TestBlobStore {
         System.out.println(" " + i);
       }
     }
+
+    System.out.println();
+    System.out.println("reading");
+    int i = 0;
+    for (String uuidStr : myIds.keySet()) {
+      byte[] uuid = ByteArrayUtils.decodeHex(uuidStr);
+      i++;
+      if ((i % 100) == 0) {
+        System.out.print(".");
+      }
+      if ((i % 10000) == 0) {
+        System.out.println(" " + i);
+      }
+      Metadata metadata = myIds.get(uuidStr);
+
+      Monitor m = MeasureFactory.start("test");
+      try {
+        assertTrue(storage.has(FAMILY, uuid));
+      } finally {
+        m.stop();
+      }
+
+      Metadata metadataStored = null;
+      m = MeasureFactory.start("read-meta");
+      try {
+        metadataStored = storage.getMetadata(FAMILY, uuid);
+      } finally {
+        m.stop();
+      }
+      assertNotNull(metadataStored);
+      assertEquals(metadata.getContentType(), metadataStored.getContentType());
+      assertEquals(buffer.length, metadataStored.getContentLength());
+      assertEquals(metadata.getRetention(), metadataStored.getRetention());
+
+      new Random(Integer.parseInt(metadataStored.getProperty("random"))).nextBytes(buffer);
+      ByteArrayInputStream in = new ByteArrayInputStream(buffer);
+      m = MeasureFactory.start("read-bin");
+      try (InputStream inputStream = storage.get(FAMILY, uuid)) {
+        assertTrue(IOUtils.contentEquals(inputStream, in));
+      } finally {
+        m.stop();
+      }
+    }
+    System.out.println();
+    System.out.printf("error on id: %d\r\n", ids.getErrorCount());
+    System.out.println(MeasureFactory.asString());
+  }
+
+  @Test
+  public void test1000Multithreaded() throws Exception {
+    ScheduledExecutorService executor = Executors.newScheduledThreadPool(10);
+
+    final byte[] buffer = new byte[1024 * 1024 * 1];
+    new Random().nextBytes(buffer);
+
+    Map<String, Metadata> myIds = new HashMap<>();
+    System.out.println("writing");
+    for (int i = 1; i <= 100; i++) {
+      final int x = i;
+      executor.execute(new Runnable() {
+
+        @Override
+        public void run() {
+          ByteArrayInputStream in = new ByteArrayInputStream(buffer);
+
+          byte[] uuid = ids.getByteID();
+          Metadata metadata = new Metadata().setContentLength(0).setContentType("text/simple").setRetention(x)
+              .setProperty("random", Integer.toString(x));
+          myIds.put(ByteArrayUtils.bytesAsHexString(uuid), metadata);
+          Monitor m = MeasureFactory.start("write");
+          try {
+            storage.put(FAMILY, uuid, in, metadata);
+          } catch (IOException e) {
+            log.error(e);
+          } finally {
+            m.stop();
+          }
+          if ((x % 100) == 0) {
+            System.out.print(".");
+          }
+          if ((x % 10000) == 0) {
+            System.out.println(" " + x);
+          }
+        }
+      });
+    }
+
+    executor.shutdown();
+    executor.awaitTermination(5, TimeUnit.MINUTES);
 
     System.out.println();
     System.out.println("reading");
