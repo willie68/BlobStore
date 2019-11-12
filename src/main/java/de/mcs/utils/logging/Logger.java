@@ -52,6 +52,10 @@ public class Logger {
     this.log = logger;
   }
 
+  public void info(String format, Object... objects) {
+    log.info(String.format(format, objects));
+  }
+
   public void debug(String format, Object... objects) {
     log.debug(String.format(format, objects));
   }

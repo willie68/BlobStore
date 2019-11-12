@@ -14,7 +14,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
-import org.apache.log4j.Logger;
 import org.rocksdb.RocksDBException;
 
 import de.mcs.blobstore.BlobEntry.Status;
@@ -24,6 +23,7 @@ import de.mcs.blobstore.vlog.VLogEntryInfo;
 import de.mcs.blobstore.vlog.VLogList;
 import de.mcs.utils.ByteArrayUtils;
 import de.mcs.utils.GsonUtils;
+import de.mcs.utils.logging.Logger;
 
 /**
  * @author w.klaas
@@ -42,6 +42,8 @@ public class BlobStorageImpl implements BlobStorage {
 
   private RocksDBEngine rocksDBEngine;
 
+  private VLogCompactor compactor;
+
   /**
    * creating a new BLobstorage in the desired path
    * 
@@ -53,7 +55,7 @@ public class BlobStorageImpl implements BlobStorage {
     this.options = options;
     this.executor = Executors.newScheduledThreadPool(10);
     this.vLogList = new VLogList(options);
-    // this.compactor = new Compactor();
+    this.compactor = VLogCompactor.create().withOptions(options).withDB(rocksDBEngine);
 
     initBlobStorage();
 
@@ -68,10 +70,12 @@ public class BlobStorageImpl implements BlobStorage {
             if (!vLog.hasWriteLock()) {
               vLog.getvLogFile().setReadOnly(true);
               vLogList.remove(vLog);
-              log.info(String.format("remove vlog %s from writing list.", vLog.getName()));
+              log.info("remove vlog %s from writing list.", vLog.getName());
+              compactor.addVLog(vLog);
             }
           }
         }
+        compactor.startCompaction();
       }
     }, 10, 10, TimeUnit.SECONDS);
   }

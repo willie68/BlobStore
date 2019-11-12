@@ -8,14 +8,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
 
-import org.apache.log4j.Logger;
-
 import de.mcs.blobstore.BlobsDBException;
 import de.mcs.blobstore.ChunkEntry;
 import de.mcs.blobstore.Options;
 import de.mcs.utils.caches.KeyAlreadyExistsException;
 import de.mcs.utils.caches.ObjectCache;
 import de.mcs.utils.caches.ObjectCache.ObjectListener;
+import de.mcs.utils.logging.Logger;
 
 public class VLogList {
 
@@ -39,7 +38,7 @@ public class VLogList {
       @Override
       public void onDelete(VLog item) {
         try {
-          log.debug(String.format("remove %s from read cache", item.getName()));
+          log.debug("remove %s from read cache", item.getName());
           item.closeFile();
         } catch (IOException e) {
           // TODO Auto-generated catch block
