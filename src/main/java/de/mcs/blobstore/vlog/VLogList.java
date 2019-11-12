@@ -29,7 +29,7 @@ public class VLogList {
   public VLogList(Options options) {
     this.options = options;
     this.vLogMap = new HashMap<>();
-    this.readMap = new ObjectCache<>(20);
+    this.readMap = new ObjectCache<>(100);
     init();
   }
 

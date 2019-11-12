@@ -18,8 +18,6 @@ import org.apache.log4j.Logger;
 import org.rocksdb.RocksDBException;
 
 import de.mcs.blobstore.BlobEntry.Status;
-import de.mcs.blobstore.utils.IDGenerator;
-import de.mcs.blobstore.utils.QueuedIDGenerator;
 import de.mcs.blobstore.utils.TransformerHelper;
 import de.mcs.blobstore.vlog.VLog;
 import de.mcs.blobstore.vlog.VLogEntryInfo;
@@ -40,8 +38,6 @@ public class BlobStorageImpl implements BlobStorage {
 
   private VLogList vLogList;
 
-  private IDGenerator idGenerator;
-
   private ScheduledExecutorService executor;
 
   private RocksDBEngine rocksDBEngine;
@@ -56,7 +52,6 @@ public class BlobStorageImpl implements BlobStorage {
   public BlobStorageImpl(Options options) throws RocksDBException {
     this.options = options;
     this.executor = Executors.newScheduledThreadPool(10);
-    this.idGenerator = new QueuedIDGenerator(1000);
     this.vLogList = new VLogList(options);
     // this.compactor = new Compactor();
 
@@ -98,11 +93,14 @@ public class BlobStorageImpl implements BlobStorage {
     try (VLog vlog = vLogList.getNextAvailableVLog()) {
       rocksDBEngine.putDBBlobEntry(family, key, blobEntry);
 
-      // writing binary data
-      VLogEntryInfo vLogEntryInfo = vlog.put(key, 1, in);
-      ChunkEntry chunkEntry = TransformerHelper.transformVLogEntryInfo2ChunkEntry(vLogEntryInfo, 1, vlog.getName(),
-          keyString);
-      rocksDBEngine.putDBChunkEntry(family, key, chunkEntry);
+      // only write the first chunk, if an inputstream is availble
+      if (in != null) {
+        // writing binary data
+        VLogEntryInfo vLogEntryInfo = vlog.put(key, 1, in);
+        ChunkEntry chunkEntry = TransformerHelper.transformVLogEntryInfo2ChunkEntry(vLogEntryInfo, 1, vlog.getName(),
+            keyString);
+        rocksDBEngine.putDBChunkEntry(family, key, chunkEntry);
+      }
 
       String jsonBlobEntry = GsonUtils.getJsonMapper().toJson(blobEntry);
       // writing metadata

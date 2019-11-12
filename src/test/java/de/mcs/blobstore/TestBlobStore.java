@@ -58,7 +58,7 @@ public class TestBlobStore {
     }
     filePath.mkdirs();
     storage = new BlobStorageImpl(
-        Options.defaultOptions().setPath(filePath.getAbsolutePath()).setVlogMaxSize(10 * 1024 * 1024));
+        Options.defaultOptions().setPath(filePath.getAbsolutePath()).setVlogMaxSize(100 * 1024 * 1024));
   }
 
   @After
@@ -265,7 +265,7 @@ public class TestBlobStore {
               }
               myIds.put(uuidStr, metadata);
             }
-            Monitor m = MeasureFactory.start("write");
+            Monitor m = MeasureFactory.start("writeMulti");
             try {
               storage.put(FAMILY, uuid, in, metadata);
             } catch (IOException e) {
@@ -289,6 +289,8 @@ public class TestBlobStore {
     executor.shutdown();
     executor.awaitTermination(5, TimeUnit.MINUTES);
 
+    executor = Executors.newScheduledThreadPool(10);
+
     assertEquals(DOC_COUNT, myIds.size());
 
     System.out.println();
@@ -296,47 +298,60 @@ public class TestBlobStore {
     byte[] buffer = new byte[1024 * 1024 * 1];
     int i = 0;
     for (String uuidStr : myIds.keySet()) {
-      StringBuilder b = new StringBuilder();
-      byte[] uuid = ByteArrayUtils.decodeHex(uuidStr);
       i++;
-      if ((i % 100) == 0) {
-        System.out.print(".");
-      }
-      if ((i % 10000) == 0) {
-        System.out.println(" " + i);
-      }
-      Metadata metadata = myIds.get(uuidStr);
-      b.append(String.format("%s, src: %s", uuidStr, metadata.toString()));
-      Monitor m = MeasureFactory.start("test");
-      try {
-        assertTrue(storage.has(FAMILY, uuid));
-      } finally {
-        m.stop();
-      }
+      final int x = i;
+      executor.execute(new Runnable() {
 
-      Metadata metadataStored = null;
-      m = MeasureFactory.start("read-meta");
-      try {
-        metadataStored = storage.getMetadata(FAMILY, uuid);
-      } finally {
-        m.stop();
-      }
-      assertNotNull(metadataStored);
-      b.append(String.format("%s, dst: %s", uuidStr, metadataStored.toString()));
+        @Override
+        public void run() {
+          try {
+            StringBuilder b = new StringBuilder();
+            byte[] uuid = ByteArrayUtils.decodeHex(uuidStr);
+            if ((x % 100) == 0) {
+              System.out.print(".");
+            }
+            if ((x % 10000) == 0) {
+              System.out.println(" " + x);
+            }
+            Metadata metadata = myIds.get(uuidStr);
+            b.append(String.format("%s, src: %s", uuidStr, metadata.toString()));
+            Monitor m = MeasureFactory.start("testMulti");
+            try {
+              assertTrue(storage.has(FAMILY, uuid));
+            } finally {
+              m.stop();
+            }
 
-      assertEquals(metadata.getContentType(), metadataStored.getContentType(), b.toString());
-      assertEquals(buffer.length, metadataStored.getContentLength(), b.toString());
-      assertEquals(metadata.getRetention(), metadataStored.getRetention(), b.toString());
+            Metadata metadataStored = null;
+            m = MeasureFactory.start("readMulti-meta");
+            try {
+              metadataStored = storage.getMetadata(FAMILY, uuid);
+            } finally {
+              m.stop();
+            }
+            assertNotNull(metadataStored);
+            b.append(String.format("%s, dst: %s", uuidStr, metadataStored.toString()));
 
-      new Random(Integer.parseInt(metadataStored.getProperty("random"))).nextBytes(buffer);
-      ByteArrayInputStream in = new ByteArrayInputStream(buffer);
-      m = MeasureFactory.start("read-bin");
-      try (InputStream inputStream = storage.get(FAMILY, uuid)) {
-        assertTrue(b.toString(), IOUtils.contentEquals(in, inputStream));
-      } finally {
-        m.stop();
-      }
+            assertEquals(metadata.getContentType(), metadataStored.getContentType(), b.toString());
+            assertEquals(buffer.length, metadataStored.getContentLength(), b.toString());
+            assertEquals(metadata.getRetention(), metadataStored.getRetention(), b.toString());
+
+            new Random(Integer.parseInt(metadataStored.getProperty("random"))).nextBytes(buffer);
+            ByteArrayInputStream in = new ByteArrayInputStream(buffer);
+            m = MeasureFactory.start("readMulti-bin");
+            try (InputStream inputStream = storage.get(FAMILY, uuid)) {
+              assertTrue(b.toString(), IOUtils.contentEquals(in, inputStream));
+            } finally {
+              m.stop();
+            }
+          } catch (Exception e) {
+            log.error(e);
+          }
+        }
+      });
     }
+    executor.shutdown();
+    executor.awaitTermination(5, TimeUnit.MINUTES);
 
     System.out.println();
     System.out.printf("error on id: %d\r\n", ids.getErrorCount());
