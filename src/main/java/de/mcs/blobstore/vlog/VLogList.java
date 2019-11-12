@@ -28,12 +28,7 @@ public class VLogList {
   public VLog getNextAvailableVLog() throws IOException {
     writeLock.lock();
     try {
-      VLog vLog = null;
-      for (VLog vlog : list.values()) {
-        if (vlog.isAvailbleForWriting()) {
-          vLog = vlog;
-        }
-      }
+      VLog vLog = getAvailableVLogForWriting();
       if (vLog == null) {
         int i = 0;
         File file = null;
@@ -52,6 +47,15 @@ public class VLogList {
     }
   }
 
+  private VLog getAvailableVLogForWriting() {
+    for (VLog vLog : list.values()) {
+      if (vLog.isAvailbleForWriting()) {
+        return vLog;
+      }
+    }
+    return null;
+  }
+
   public VLog getVLog(ChunkEntry chunk) throws BlobsDBException {
     VLog vLog = list.get(chunk.getContainerName());
     if (vLog == null) {
@@ -60,7 +64,7 @@ public class VLogList {
         throw new BlobsDBException(String.format("vlog not found: %s", file.getName()));
       }
       try {
-        VLogFile vLogFile = new VLogFile(file);
+        VLogFile vLogFile = new VLogFile(options, file);
         vLog = VLog.wrap(vLogFile);
       } catch (IOException e) {
         throw new BlobsDBException(e);

@@ -6,11 +6,14 @@ package de.mcs.blobstore;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -19,8 +22,10 @@ import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.DBOptions;
+import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
+import org.rocksdb.RocksIterator;
 
 import de.mcs.blobstore.BlobEntry.Status;
 import de.mcs.blobstore.utils.IDGenerator;
@@ -37,6 +42,8 @@ import de.mcs.utils.GsonUtils;
  *
  */
 public class BlobStorageImpl implements BlobStorage {
+
+  private static final byte[] KEY_INFIX = "_c".getBytes(StandardCharsets.UTF_8);
 
   private static final String DEFAULT_COLUMN_FAMILY = new String(RocksDB.DEFAULT_COLUMN_FAMILY);
 
@@ -55,6 +62,8 @@ public class BlobStorageImpl implements BlobStorage {
 
   private Lock dbFamilyLock;
 
+  private ScheduledExecutorService executor;
+
   /**
    * creating a new BLobstorage in the desired path
    * 
@@ -64,8 +73,10 @@ public class BlobStorageImpl implements BlobStorage {
    */
   public BlobStorageImpl(Options options) throws RocksDBException {
     this.options = options;
+    this.dbFamilyLock = new ReentrantLock();
+    this.executor = Executors.newScheduledThreadPool(10);
+
     initBlobStorage();
-    dbFamilyLock = new ReentrantLock();
   }
 
   private void initBlobStorage() throws RocksDBException {
@@ -106,14 +117,18 @@ public class BlobStorageImpl implements BlobStorage {
       throw new BlobsDBException(String.format("key exceeding length of %d bytes", KEY_MAX_LENGTH));
     }
     BlobEntry blobEntry = new BlobEntry();
-    blobEntry.setFamily(family).setKey(ByteArrayUtils.bytesAsHexString(key)).setMetadata(metadata)
-        .setTimestamp(new Date().getTime()).setRetention(metadata.getRetention()).setStatus(BlobEntry.Status.CREATED);
+    String keyString = ByteArrayUtils.bytesAsHexString(key);
+    blobEntry.setFamily(family).setKey(keyString).setMetadata(metadata).setTimestamp(new Date().getTime())
+        .setRetention(metadata.getRetention()).setStatus(BlobEntry.Status.CREATED);
 
     try (VLog vlog = vLogList.getNextAvailableVLog()) {
+      putDBBlobEntry(family, key, blobEntry);
+
       // writing binary data
       VLogEntryInfo vLogEntryInfo = vlog.put(key, 1, in);
-      ChunkEntry chunkEntry = TransformerHelper.transformVLogEntryInfo2ChunkEntry(vLogEntryInfo, 1, vlog.getName());
-      blobEntry.addChunkEntry(chunkEntry);
+      ChunkEntry chunkEntry = TransformerHelper.transformVLogEntryInfo2ChunkEntry(vLogEntryInfo, 1, vlog.getName(),
+          keyString);
+      putDBChunkEntry(family, key, chunkEntry);
 
       String jsonBlobEntry = GsonUtils.getJsonMapper().toJson(blobEntry);
       // writing metadata
@@ -121,10 +136,9 @@ public class BlobStorageImpl implements BlobStorage {
       VLogEntryInfo vLogEntryInfoJson = vlog.put(key, 0, jsonIn);
 
       ChunkEntry chunkEntryJson = TransformerHelper.transformVLogEntryInfo2ChunkEntry(vLogEntryInfoJson, 0,
-          vlog.getName());
-      blobEntry.addChunkEntry(chunkEntryJson);
+          vlog.getName(), keyString);
+      putDBChunkEntry(family, key, chunkEntryJson);
 
-      putDBBlobEntry(family, key, blobEntry);
     } catch (RocksDBException e) {
       throw new BlobsDBException(e);
     }
@@ -137,11 +151,17 @@ public class BlobStorageImpl implements BlobStorage {
       if ((entry == null) || entry.getStatus().equals(Status.DELETED)) {
         throw new BlobsDBException(String.format("blob not found with key: %s#%s", family, key));
       }
-      List<ChunkEntry> chunks = entry.getChunks();
+      List<ChunkEntry> chunks = getChunks(family, key);
       if (chunks == null || chunks.size() == 0) {
         throw new BlobsDBException(String.format("chunks not found with key: %s#%s", family, key));
       }
-      ChunkEntry chunk = chunks.get(0);
+      ChunkEntry chunk = null;
+      for (ChunkEntry chunkEntry : chunks) {
+        if (chunkEntry.getChunkNumber() == 1) {
+          chunk = chunkEntry;
+          break;
+        }
+      }
       if (isVLog(chunk)) {
         VLog vlog = vLogList.getVLog(chunk);
         return vlog.get(chunk.getStartBinary(), chunk.getLength());
@@ -150,6 +170,31 @@ public class BlobStorageImpl implements BlobStorage {
     } catch (RocksDBException e) {
       throw new BlobsDBException(e);
     }
+  }
+
+  private List<ChunkEntry> getChunks(String family, byte[] key) throws RocksDBException {
+    List<ChunkEntry> list = new ArrayList<>();
+    String searchKey = ByteArrayUtils.bytesAsHexString(key);
+    ReadOptions readOptions = new ReadOptions();
+    try (RocksIterator newIterator = db.newIterator(getColumnFamilyHandle(family), readOptions)) {
+      newIterator.seek(key);
+      while (newIterator.isValid()) {
+        String stringKey = ByteArrayUtils.bytesAsHexString(newIterator.key());
+        if (stringKey.startsWith(searchKey)) {
+          String json = new String(newIterator.value());
+          ChunkEntry chunkEntry = GsonUtils.getJsonMapper().fromJson(json, ChunkEntry.class);
+          if (chunkEntry.isRightTyped()) {
+            list.add(chunkEntry);
+          }
+        }
+        newIterator.next();
+      }
+    }
+    return list;
+  }
+
+  private boolean isVLog(ChunkEntry chunk) {
+    return chunk.getContainerName().endsWith(".vlog");
   }
 
   private BlobEntry getDBBlobEntry(String family, byte[] key) throws RocksDBException, BlobsDBException {
@@ -161,14 +206,42 @@ public class BlobStorageImpl implements BlobStorage {
     return entry;
   }
 
-  private boolean isVLog(ChunkEntry chunk) {
-    return chunk.getContainerName().endsWith(".vlog");
-  }
-
   private void putDBBlobEntry(String family, byte[] key, BlobEntry blobEntry) throws RocksDBException {
     String json = GsonUtils.getJsonMapper().toJson(blobEntry);
 
     dbPut(family, key, json);
+  }
+
+  private void putDBChunkEntry(String family, byte[] key, ChunkEntry chunkEntry) throws RocksDBException {
+    String json = chunkEntry.toJsonString();
+
+    byte[] newKey = getChunkKey(key, chunkEntry.getChunkNumber());
+
+    dbPut(family, newKey, json);
+  }
+
+  private ChunkEntry getDBChunkEntry(String family, byte[] key, int chunkNumber)
+      throws RocksDBException, BlobsDBException {
+
+    byte[] newKey = getChunkKey(key, chunkNumber);
+
+    String value = dbGet(family, newKey);
+    if (value == null) {
+      return null;
+    }
+    return GsonUtils.getJsonMapper().fromJson(value, ChunkEntry.class);
+  }
+
+  private byte[] getChunkKey(byte[] key, int chunkNumber) {
+    ByteBuffer newKeyBuffer = ByteBuffer.allocate(1024);
+    newKeyBuffer.put(key);
+    newKeyBuffer.put(KEY_INFIX);
+    newKeyBuffer.putInt(chunkNumber);
+    newKeyBuffer.flip();
+
+    byte[] newKey = new byte[newKeyBuffer.limit()];
+    newKeyBuffer.get(newKey);
+    return newKey;
   }
 
   @Override
@@ -250,6 +323,15 @@ public class BlobStorageImpl implements BlobStorage {
       if (blobEntry == null || blobEntry.getStatus().equals(Status.DELETED)) {
         throw new BlobsDBException(String.format("blob not found with key: %s#%s", family, key));
       }
+      long length = 0;
+      List<ChunkEntry> chunks = getChunks(family, key);
+      for (ChunkEntry chunk : chunks) {
+        if (chunk.getChunkNumber() > 0) {
+          length += chunk.getLength();
+        }
+      }
+      blobEntry.setLength(length);
+      blobEntry.getMetadata().setContentLength(length);
       return blobEntry.getMetadata();
     } catch (RocksDBException e) {
       throw new BlobsDBException(e);
@@ -263,6 +345,26 @@ public class BlobStorageImpl implements BlobStorage {
       ColumnFamilyHandle columnFamilyHandle = getColumnFamilyHandle(family);
       db.put(columnFamilyHandle, key, value.getBytes());
     }
+  }
+
+  public List<String> dbGetAllKeys(String family, byte[] key) throws RocksDBException {
+    byte[] bs = null;
+    if (family == null) {
+    } else {
+      List<String> keys = new ArrayList<>();
+      try (ReadOptions options = new ReadOptions()) {
+        ColumnFamilyHandle columnFamilyHandle = getColumnFamilyHandle(family);
+        try (RocksIterator newIterator = db.newIterator(columnFamilyHandle, options)) {
+          newIterator.seek(new byte[0]);
+          while (newIterator.isValid()) {
+            keys.add(ByteArrayUtils.bytesAsHexString(newIterator.key()));
+            newIterator.next();
+          }
+        }
+      }
+      return keys;
+    }
+    return null;
   }
 
   private String dbGet(String family, byte[] key) throws RocksDBException {

@@ -21,9 +21,6 @@
  */
 package de.mcs.blobstore;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import de.mcs.utils.GsonUtils;
 
 /**
@@ -42,11 +39,9 @@ public class BlobEntry {
   private Metadata metadata;
   private long length;
   private int status;
-
-  private List<ChunkEntry> chunks;
+  private String _type = this.getClass().getSimpleName();
 
   public BlobEntry() {
-    chunks = new ArrayList<>();
   }
 
   /**
@@ -146,30 +141,6 @@ public class BlobEntry {
   }
 
   /**
-   * @return the chunkno
-   */
-  public List<ChunkEntry> getChunks() {
-    return chunks;
-  }
-
-  /**
-   * @param chunkno
-   *          the chunkno to set
-   * @return
-   */
-  public BlobEntry setChunks(List<ChunkEntry> chunkno) {
-    this.chunks = chunkno;
-    return this;
-  }
-
-  public void addChunkEntry(ChunkEntry chunkEntry) {
-    chunks.add(chunkEntry);
-    if (chunkEntry.getChunkNumber() > 0) {
-      metadata.setContentLength(metadata.getContentLength() + chunkEntry.getLength());
-    }
-  }
-
-  /**
    * @return the state
    */
   public Status getStatus() {
@@ -193,6 +164,17 @@ public class BlobEntry {
 
   public String toJsonString() {
     return GsonUtils.getJsonMapper().toJson(this);
+  }
+
+  /**
+   * @return the _type
+   */
+  public String get_type() {
+    return _type;
+  }
+
+  public boolean isRightTyped() {
+    return this.getClass().getSimpleName().equals(_type);
   }
 
 }

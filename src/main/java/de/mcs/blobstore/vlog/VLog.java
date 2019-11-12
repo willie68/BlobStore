@@ -9,6 +9,8 @@ import java.io.InputStream;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
+import org.apache.log4j.Logger;
+
 /**
  * @author w.klaas
  *
@@ -18,6 +20,8 @@ public class VLog implements Closeable {
   public static VLog wrap(VLogFile vLogFile) {
     return new VLog().setVLogFile(vLogFile);
   }
+
+  private Logger log = Logger.getLogger(this.getClass());
 
   private VLogFile vLogFile;
   private Lock writeLock = null;
@@ -38,9 +42,7 @@ public class VLog implements Closeable {
 
   @Override
   public void close() throws IOException {
-    if (writeLock != null) {
-      writeLock.unlock();
-    }
+    writeLock.unlock();
   }
 
   /**
@@ -66,7 +68,12 @@ public class VLog implements Closeable {
   }
 
   public boolean isAvailbleForWriting() {
-    return vLogFile.isAvailbleForWriting() && forWriting();
+    boolean available = true;
+    if (!vLogFile.isAvailbleForWriting()) {
+      return false;
+    }
+    available = forWriting();
+    return available;
   }
 
   public void closeFile() throws IOException {

@@ -33,6 +33,7 @@ import de.mcs.utils.Files;
 
 public class TestBlobStore {
 
+  private static final int DOC_COUNT = 100;
   private static final String MYMETADATVALUE = "mymetadatvalue";
   private static final String MYMETADATA = "mymetadata";
   private static final boolean DELETE_STORE_BEFORE_TEST = true;
@@ -40,7 +41,7 @@ public class TestBlobStore {
 
   private Logger log = Logger.getLogger(this.getClass());
 
-  private BlobStorage storage;
+  private BlobStorageImpl storage;
   private QueuedIDGenerator ids;
   private File filePath;
 
@@ -56,7 +57,8 @@ public class TestBlobStore {
       Thread.sleep(100);
     }
     filePath.mkdirs();
-    storage = new BlobStorageImpl(Options.defaultOptions().setPath(filePath.getAbsolutePath()));
+    storage = new BlobStorageImpl(
+        Options.defaultOptions().setPath(filePath.getAbsolutePath()).setVlogMaxSize(10 * 1024 * 1024));
   }
 
   @After
@@ -161,7 +163,7 @@ public class TestBlobStore {
     Map<String, Metadata> myIds = new HashMap<>();
 
     System.out.println("writing");
-    for (int i = 1; i <= 1000; i++) {
+    for (int i = 1; i <= DOC_COUNT; i++) {
       new Random(i).nextBytes(buffer);
       ByteArrayInputStream in = new ByteArrayInputStream(buffer);
 
@@ -183,6 +185,10 @@ public class TestBlobStore {
         System.out.println(" " + i);
       }
     }
+
+    assertEquals(DOC_COUNT, myIds.size());
+
+    // List<String> dbGetAllKeys = storage.dbGetAllKeys(FAMILY);
 
     System.out.println();
     System.out.println("reading");
@@ -235,36 +241,46 @@ public class TestBlobStore {
   public void test1000Multithreaded() throws Exception {
     ScheduledExecutorService executor = Executors.newScheduledThreadPool(10);
 
-    final byte[] buffer = new byte[1024 * 1024 * 1];
-    new Random().nextBytes(buffer);
-
     Map<String, Metadata> myIds = new HashMap<>();
     System.out.println("writing");
-    for (int i = 1; i <= 100; i++) {
+    for (int i = 1; i <= DOC_COUNT; i++) {
       final int x = i;
       executor.execute(new Runnable() {
 
         @Override
         public void run() {
-          ByteArrayInputStream in = new ByteArrayInputStream(buffer);
-
-          byte[] uuid = ids.getByteID();
-          Metadata metadata = new Metadata().setContentLength(0).setContentType("text/simple").setRetention(x)
-              .setProperty("random", Integer.toString(x));
-          myIds.put(ByteArrayUtils.bytesAsHexString(uuid), metadata);
-          Monitor m = MeasureFactory.start("write");
           try {
-            storage.put(FAMILY, uuid, in, metadata);
-          } catch (IOException e) {
+            byte[] buffer = new byte[1024 * 1024 * 1];
+            new Random(x).nextBytes(buffer);
+
+            ByteArrayInputStream in = new ByteArrayInputStream(buffer);
+
+            byte[] uuid = ids.getByteID();
+            Metadata metadata = new Metadata().setContentLength(0).setContentType("text/simple").setRetention(x)
+                .setProperty("random", Integer.toString(x));
+            String uuidStr = ByteArrayUtils.bytesAsHexString(uuid);
+            synchronized (myIds) {
+              if (myIds.containsKey(uuidStr)) {
+                System.err.println("uuid doubled");
+              }
+              myIds.put(uuidStr, metadata);
+            }
+            Monitor m = MeasureFactory.start("write");
+            try {
+              storage.put(FAMILY, uuid, in, metadata);
+            } catch (IOException e) {
+              log.error(e);
+            } finally {
+              m.stop();
+            }
+            if ((x % 100) == 0) {
+              System.out.print(".");
+            }
+            if ((x % 10000) == 0) {
+              System.out.println(" " + x);
+            }
+          } catch (Exception e) {
             log.error(e);
-          } finally {
-            m.stop();
-          }
-          if ((x % 100) == 0) {
-            System.out.print(".");
-          }
-          if ((x % 10000) == 0) {
-            System.out.println(" " + x);
           }
         }
       });
@@ -273,10 +289,14 @@ public class TestBlobStore {
     executor.shutdown();
     executor.awaitTermination(5, TimeUnit.MINUTES);
 
+    assertEquals(DOC_COUNT, myIds.size());
+
     System.out.println();
     System.out.println("reading");
+    byte[] buffer = new byte[1024 * 1024 * 1];
     int i = 0;
     for (String uuidStr : myIds.keySet()) {
+      StringBuilder b = new StringBuilder();
       byte[] uuid = ByteArrayUtils.decodeHex(uuidStr);
       i++;
       if ((i % 100) == 0) {
@@ -286,7 +306,7 @@ public class TestBlobStore {
         System.out.println(" " + i);
       }
       Metadata metadata = myIds.get(uuidStr);
-
+      b.append(String.format("%s, src: %s", uuidStr, metadata.toString()));
       Monitor m = MeasureFactory.start("test");
       try {
         assertTrue(storage.has(FAMILY, uuid));
@@ -302,19 +322,22 @@ public class TestBlobStore {
         m.stop();
       }
       assertNotNull(metadataStored);
-      assertEquals(metadata.getContentType(), metadataStored.getContentType());
-      assertEquals(buffer.length, metadataStored.getContentLength());
-      assertEquals(metadata.getRetention(), metadataStored.getRetention());
+      b.append(String.format("%s, dst: %s", uuidStr, metadataStored.toString()));
+
+      assertEquals(metadata.getContentType(), metadataStored.getContentType(), b.toString());
+      assertEquals(buffer.length, metadataStored.getContentLength(), b.toString());
+      assertEquals(metadata.getRetention(), metadataStored.getRetention(), b.toString());
 
       new Random(Integer.parseInt(metadataStored.getProperty("random"))).nextBytes(buffer);
       ByteArrayInputStream in = new ByteArrayInputStream(buffer);
       m = MeasureFactory.start("read-bin");
       try (InputStream inputStream = storage.get(FAMILY, uuid)) {
-        assertTrue(IOUtils.contentEquals(inputStream, in));
+        assertTrue(b.toString(), IOUtils.contentEquals(in, inputStream));
       } finally {
         m.stop();
       }
     }
+
     System.out.println();
     System.out.printf("error on id: %d\r\n", ids.getErrorCount());
     System.out.println(MeasureFactory.asString());

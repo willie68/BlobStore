@@ -4,9 +4,9 @@
 package de.mcs.blobstore.utils;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayDeque;
 import java.util.Queue;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * @author wklaa_000
@@ -14,7 +14,7 @@ import java.util.UUID;
  */
 public class QueuedIDGenerator implements IDGenerator {
 
-  private Queue<UUID> queue = new ArrayDeque<>();
+  private Queue<UUID> queue = new ConcurrentLinkedQueue<>();
   private int errorCount = 0;
   private int queuedIdCount;
 

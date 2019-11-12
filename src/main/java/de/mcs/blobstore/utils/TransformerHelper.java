@@ -31,12 +31,12 @@ import de.mcs.utils.ByteArrayUtils;
  */
 public class TransformerHelper {
 
-  public static ChunkEntry transformVLogEntryInfo2ChunkEntry(VLogEntryInfo info, int chunkNumber,
-      String containerName) {
+  public static ChunkEntry transformVLogEntryInfo2ChunkEntry(VLogEntryInfo info, int chunkNumber, String containerName,
+      String key) {
     ChunkEntry chunkEntry = new ChunkEntry();
     chunkEntry.setChunkNumber(chunkNumber).setContainerName(containerName)
         .setHash(ByteArrayUtils.bytesAsHexString(info.getHash())).setStart(info.getStart())
-        .setStartBinary(info.getStartBinary()).setLength(info.getBinarySize());
+        .setStartBinary(info.getStartBinary()).setLength(info.getBinarySize()).setKey(key);
     return chunkEntry;
   }
 

@@ -11,6 +11,8 @@ import org.junit.jupiter.api.Test;
 
 import com.google.common.primitives.Ints;
 
+import de.mcs.blobstore.ChunkEntry;
+import de.mcs.blobstore.utils.DefaultIDGenerator;
 import de.mcs.jmeasurement.MeasureFactory;
 import de.mcs.jmeasurement.Monitor;
 import de.mcs.utils.ByteArrayUtils;
@@ -96,5 +98,29 @@ class TestMe {
     item.name = "Willie";
 
     System.out.println(GsonUtils.getJsonMapper().toJson(item));
+  }
+
+  private static final byte[] KEY_INFIX = "_c".getBytes(StandardCharsets.UTF_8);
+
+  @Test
+  void testByteBuffer() {
+    byte[] byteID = new DefaultIDGenerator().getByteID();
+    String idStr = ByteArrayUtils.bytesAsHexString(byteID);
+
+    ChunkEntry chunkEntry = new ChunkEntry().setChunkNumber(12).setKey(idStr).setContainerName("vlog_0001.vlog")
+        .setHash("12737814587154kasfk9364").setStart(3461926916L).setStartBinary(3216596596L).setLength(4875894589L);
+    String json = chunkEntry.toJsonString();
+
+    ByteBuffer newKeyBuffer = ByteBuffer.allocate(1024);
+    newKeyBuffer.put(byteID);
+    newKeyBuffer.put(KEY_INFIX);
+    newKeyBuffer.putInt(chunkEntry.getChunkNumber());
+    newKeyBuffer.flip();
+
+    byte[] newKey = new byte[newKeyBuffer.limit()];
+    newKeyBuffer.get(newKey);
+
+    System.out.println(ByteArrayUtils.bytesAsHexString(byteID));
+    System.out.println(ByteArrayUtils.bytesAsHexString(newKey));
   }
 }
