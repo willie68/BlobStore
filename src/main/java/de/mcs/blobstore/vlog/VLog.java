@@ -6,7 +6,6 @@ package de.mcs.blobstore.vlog;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.apache.log4j.Logger;
@@ -24,8 +23,8 @@ public class VLog implements Closeable {
   private Logger log = Logger.getLogger(this.getClass());
 
   private VLogFile vLogFile;
-  private Lock writeLock = null;
-  private Lock readLock = null;
+  private ReentrantLock writeLock = null;
+  private ReentrantLock readLock = null;
 
   private VLog() {
     writeLock = new ReentrantLock();
@@ -78,6 +77,10 @@ public class VLog implements Closeable {
 
   public void closeFile() throws IOException {
     vLogFile.close();
+  }
+
+  public boolean hasWriteLock() {
+    return writeLock.isLocked();
   }
 
 }

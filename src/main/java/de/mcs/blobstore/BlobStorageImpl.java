@@ -11,9 +11,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -75,13 +77,31 @@ public class BlobStorageImpl implements BlobStorage {
     this.options = options;
     this.dbFamilyLock = new ReentrantLock();
     this.executor = Executors.newScheduledThreadPool(10);
+    this.idGenerator = new QueuedIDGenerator(1000);
+    this.vLogList = new VLogList(options);
 
     initBlobStorage();
+
+    executor.scheduleWithFixedDelay(new Runnable() {
+
+      @Override
+      public void run() {
+        List<VLog> list = vLogList.getList();
+        for (Iterator iterator = list.iterator(); iterator.hasNext();) {
+          VLog vLog = (VLog) iterator.next();
+          if (vLog.getvLogFile().getSize() > options.vlogMaxSize) {
+            if (!vLog.hasWriteLock()) {
+              vLog.getvLogFile().setReadOnly(true);
+              vLogList.remove(vLog);
+              log.info(String.format("remove vlog %s from writing list.", vLog.getName()));
+            }
+          }
+        }
+      }
+    }, 10, 10, TimeUnit.SECONDS);
   }
 
   private void initBlobStorage() throws RocksDBException {
-    idGenerator = new QueuedIDGenerator(1000);
-    vLogList = new VLogList(options);
     initRocksDB();
   }
 

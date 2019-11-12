@@ -33,7 +33,7 @@ import de.mcs.utils.Files;
 
 public class TestBlobStore {
 
-  private static final int DOC_COUNT = 100;
+  private static final int DOC_COUNT = 1000;
   private static final String MYMETADATVALUE = "mymetadatvalue";
   private static final String MYMETADATA = "mymetadata";
   private static final boolean DELETE_STORE_BEFORE_TEST = true;

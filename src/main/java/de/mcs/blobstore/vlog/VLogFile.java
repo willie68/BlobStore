@@ -66,19 +66,27 @@ public class VLogFile implements Closeable {
   private FileChannel fileChannel;
   private RandomAccessFile writer;
   private Options options;
+  private int chunkCount;
+  private boolean readOnly;
 
   public static File getFilePathName(File path, int number) {
     String internalName = String.format("vlog_%04d.vlog", number);
     return new File(path, internalName);
   }
 
+  private VLogFile() {
+    chunkCount = -1;
+  }
+
   public VLogFile(Options options, int number) throws IOException {
+    this();
     this.options = options;
     this.vLogFile = getFilePathName(new File(options.getPath()), number);
     init();
   }
 
   public VLogFile(Options options, File file) throws IOException {
+    this();
     this.options = options;
     this.vLogFile = file;
     init();
@@ -94,16 +102,20 @@ public class VLogFile implements Closeable {
   }
 
   private void loadLogFile() throws IOException {
-    log.debug("creating new vlog file: %s", internalName);
+    log.debug("loading vlog file: %s", internalName);
     writer = new RandomAccessFile(vLogFile, "rw");
     writer.seek(writer.length());
     fileChannel = writer.getChannel();
+    chunkCount = -1;
+    readOnly = true;
   }
 
   private void initLogFile() throws FileNotFoundException {
     log.debug("creating new vlog file: %s", internalName);
     writer = new RandomAccessFile(vLogFile, "rw");
     fileChannel = writer.getChannel();
+    chunkCount = 0;
+    readOnly = false;
   }
 
   public String getName() {
@@ -122,6 +134,9 @@ public class VLogFile implements Closeable {
   public VLogEntryInfo put(byte[] key, int chunknumber, InputStream in) throws IOException {
     if (key.length > KEY_MAX_LENGTH) {
       throw new BlobsDBException("Illegal key length.");
+    }
+    if (isReadOnly()) {
+      throw new BlobsDBException(String.format("VLogfile %s is read only.", internalName));
     }
     byte keyLength = (byte) key.length;
     VLogEntryInfo info = new VLogEntryInfo();
@@ -172,5 +187,24 @@ public class VLogFile implements Closeable {
       return false;
     }
     return true;
+  }
+
+  /**
+   * @return the chunkCount
+   */
+  public int getChunkCount() {
+    return chunkCount;
+  }
+
+  /**
+   * @return the readOnly
+   */
+  public boolean isReadOnly() {
+    return readOnly;
+  }
+
+  public VLogFile setReadOnly(boolean readonly) {
+    this.readOnly = readonly;
+    return this;
   }
 }
