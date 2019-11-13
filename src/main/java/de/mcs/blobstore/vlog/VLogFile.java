@@ -34,6 +34,10 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
 
 import org.apache.commons.io.input.BoundedInputStream;
 
@@ -103,7 +107,7 @@ public class VLogFile implements Closeable {
 
   private void loadLogFile() throws IOException {
     log.debug("loading vlog file: %s", internalName);
-    writer = new RandomAccessFile(vLogFile, "rw");
+    writer = new RandomAccessFile(vLogFile, "r");
     writer.seek(writer.length());
     fileChannel = writer.getChannel();
     chunkCount = -1;
@@ -206,5 +210,31 @@ public class VLogFile implements Closeable {
   public VLogFile setReadOnly(boolean readonly) {
     this.readOnly = readonly;
     return this;
+  }
+
+  public File getFile() {
+    return vLogFile;
+  }
+
+  public Iterator<VLogEntryInfo> getIterator() throws IOException {
+    List<VLogEntryInfo> entryInfos = new ArrayList<>();
+    RandomAccessInputStream input = new RandomAccessInputStream(vLogFile);
+    boolean markerFound = false;
+    long position = 0;
+    while (input.available() > 0) {
+      markerFound = true;
+      byte[] next = input.readNBytes(4);
+      if (next.length != 4) {
+        markerFound = false;
+      }
+      if (!Arrays.equals(DOC_START, next)) {
+        markerFound = false;
+      }
+
+      if (!markerFound) {
+        input.position(position + 1);
+      }
+    }
+    return entryInfos.iterator();
   }
 }

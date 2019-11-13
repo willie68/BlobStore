@@ -4,10 +4,16 @@
 package de.mcs.blobstore.vlog;
 
 import java.io.Closeable;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
 
+import de.mcs.utils.io.RandomAccessInputStream;
 import de.mcs.utils.logging.Logger;
 
 /**
@@ -81,6 +87,10 @@ public class VLog implements Closeable {
 
   public boolean hasWriteLock() {
     return writeLock.isLocked();
+  }
+
+  public Iterator<VLogEntryInfo> getIterator() throws IOException {
+    return vLogFile.getIterator();
   }
 
 }
