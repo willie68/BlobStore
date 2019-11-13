@@ -244,6 +244,7 @@ public class VLogFile implements Closeable {
               System.out.printf("not found: %d\r\n", positionMarker);
               input.position(positionMarker + 2);
             } else {
+              System.out.println("entry found: \r\n");
               VLogEntryDescription info = new VLogEntryDescription();
               info.chunkNumber = descriptor.chunkNumber;
               info.containerName = getName();
