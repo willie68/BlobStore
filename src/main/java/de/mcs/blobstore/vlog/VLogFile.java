@@ -229,6 +229,13 @@ public class VLogFile implements Closeable {
       }
       if (!Arrays.equals(DOC_START, next)) {
         markerFound = false;
+      } else {
+        int keylength = input.read();
+        byte[] key = input.readNBytes(keylength);
+
+        header.putInt(chunknumber);
+        header.put(DOC_LIMITER);
+
       }
 
       if (!markerFound) {
