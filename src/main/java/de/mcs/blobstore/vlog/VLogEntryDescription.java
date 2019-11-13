@@ -3,18 +3,23 @@
  */
 package de.mcs.blobstore.vlog;
 
-import de.mcs.utils.ByteArrayUtils;
+import de.mcs.utils.GsonUtils;
 
 /**
  * @author w.klaas
  *
  */
-public class VLogEntryInfo {
+public class VLogEntryDescription {
+  String containerName;
+  String family;
+  byte[] key;
+  int chunkNumber;
   long start;
-  long startDescription;
   long startBinary;
+  long startDescription;
   long end;
   byte[] hash;
+  long length;
 
   /**
    * @return the start
@@ -31,6 +36,13 @@ public class VLogEntryInfo {
   }
 
   /**
+   * @return the startDescription
+   */
+  public long getStartDescription() {
+    return startDescription;
+  }
+
+  /**
    * @return the hash
    */
   public byte[] getHash() {
@@ -38,7 +50,11 @@ public class VLogEntryInfo {
   }
 
   public long getBinarySize() {
-    return startDescription - startBinary;
+    return length;
+  }
+
+  public long getDescriptionSize() {
+    return end - startDescription;
   }
 
   public long getEnd() {
@@ -47,12 +63,11 @@ public class VLogEntryInfo {
 
   @Override
   public String toString() {
-    return String.format("start: %d, bin: %d, desc: %d, end: %d, hash: %s", start, startBinary, startDescription, end,
-        ByteArrayUtils.bytesAsHexString(hash));
+    return GsonUtils.getJsonMapper().toJson(this);
   }
 
-  public long getDescriptionSize() {
-    return end - startDescription;
+  public String toJsonString() {
+    return GsonUtils.getJsonMapper().toJson(this);
   }
 
 }

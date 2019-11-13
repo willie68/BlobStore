@@ -58,7 +58,7 @@ public class TestBlobStore {
     }
     filePath.mkdirs();
     storage = new BlobStorageImpl(
-        Options.defaultOptions().setPath(filePath.getAbsolutePath()).setVlogMaxSize(10 * 1024 * 1024));
+        Options.defaultOptions().setPath(filePath.getAbsolutePath()).setVlogMaxSize(100 * 1024 * 1024));
   }
 
   @After

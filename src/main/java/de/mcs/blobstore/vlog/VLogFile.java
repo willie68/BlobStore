@@ -21,6 +21,7 @@
  */
 package de.mcs.blobstore.vlog;
 
+import java.io.BufferedInputStream;
 import java.io.Closeable;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -57,13 +58,6 @@ import de.mcs.utils.logging.Logger;
  */
 public class VLogFile implements Closeable {
 
-  private static final String VLOG_VERSION = "1";
-  private static final byte[] DOC_START = ("@@@" + VLOG_VERSION).getBytes(StandardCharsets.UTF_8);
-  private static final byte[] DOC_LIMITER = "#".getBytes(StandardCharsets.UTF_8);
-  private static final int KEY_MAX_LENGTH = 256;
-  // because of the headerstructure, 4 bytes DOC_START + 1 byte KEY_LENGTH + KEY
-  // itself + 4 bytes Chunknumber + 1 byte DOC_LIMITER
-  private static final int HEADER_MAX_LENGTH = DOC_START.length + 1 + KEY_MAX_LENGTH + 4 + DOC_LIMITER.length;
   private Logger log = Logger.getLogger(this.getClass());
   private String internalName;
   private File vLogFile;
@@ -135,26 +129,31 @@ public class VLogFile implements Closeable {
     writer.close();
   }
 
-  public VLogEntryInfo put(byte[] key, int chunknumber, InputStream in) throws IOException {
-    if (key.length > KEY_MAX_LENGTH) {
+  public VLogEntryInfo put(String family, byte[] key, int chunknumber, InputStream in) throws IOException {
+    byte[] familyBytes = family.getBytes(StandardCharsets.UTF_8);
+    if (familyBytes.length > VLogDescriptor.KEY_MAX_LENGTH) {
+      throw new BlobsDBException("Illegal family length.");
+    }
+    if (key.length > VLogDescriptor.KEY_MAX_LENGTH) {
       throw new BlobsDBException("Illegal key length.");
     }
     if (isReadOnly()) {
       throw new BlobsDBException(String.format("VLogfile %s is read only.", internalName));
     }
-    byte keyLength = (byte) key.length;
+
     VLogEntryInfo info = new VLogEntryInfo();
     info.start = fileChannel.position();
-    ByteBuffer header = ByteBuffer.allocateDirect(HEADER_MAX_LENGTH);
 
-    header.rewind();
-    header.put(DOC_START);
-    header.put(keyLength);
-    header.put(key);
-    header.putInt(chunknumber);
-    header.put(DOC_LIMITER);
-    header.flip();
-    fileChannel.write(header);
+    ByteBuffer buffer = ByteBuffer.allocate(VLogDescriptor.DOC_START.length);
+    buffer.put(VLogDescriptor.DOC_START);
+    buffer.flip();
+    fileChannel.write(buffer);
+
+    VLogDescriptor vlogDescriptor = new VLogDescriptor();
+    vlogDescriptor.familyBytes = familyBytes;
+    vlogDescriptor.key = key;
+    vlogDescriptor.chunkNumber = chunknumber;
+
     info.startBinary = fileChannel.position();
 
     // write the binary data
@@ -164,17 +163,18 @@ public class VLogFile implements Closeable {
     ChannelTools.fastChannelCopy(inChannel, fileChannel);
 
     byte[] digest = messageDigest.digest();
-    info.startPostfix = fileChannel.position();
     info.hash = digest;
     // write the postfix
-    VLogPostFix postFix = new VLogPostFix();
-    postFix.length = info.startPostfix - info.startBinary;
-    postFix.hash = digest;
+    vlogDescriptor.length = fileChannel.position() - info.startBinary;
+    vlogDescriptor.hash = digest;
 
-    fileChannel.write(postFix.getBytes());
+    info.startDescription = fileChannel.position();
 
+    fileChannel.write(vlogDescriptor.getBytes());
     info.end = fileChannel.position();
+
     fileChannel.force(true);
+
     return info;
   }
 
@@ -216,28 +216,50 @@ public class VLogFile implements Closeable {
     return vLogFile;
   }
 
-  public Iterator<VLogEntryInfo> getIterator() throws IOException {
-    List<VLogEntryInfo> entryInfos = new ArrayList<>();
+  public Iterator<VLogEntryDescription> iterator() throws IOException {
+    List<VLogEntryDescription> entryInfos = new ArrayList<>();
+
     RandomAccessInputStream input = new RandomAccessInputStream(vLogFile);
+    BufferedInputStream bufInput = new BufferedInputStream(input);
     boolean markerFound = false;
     long position = 0;
-    while (input.available() > 0) {
+    while (bufInput.available() > 0) {
       markerFound = true;
-      byte[] next = input.readNBytes(4);
+      long start = input.position();
+      byte[] next = bufInput.readNBytes(4);
       if (next.length != 4) {
         markerFound = false;
       }
-      if (!Arrays.equals(DOC_START, next)) {
+      if (!Arrays.equals(VLogDescriptor.DOC_START, next)) {
         markerFound = false;
       } else {
-        int keylength = input.read();
-        byte[] key = input.readNBytes(keylength);
-
-        header.putInt(chunknumber);
-        header.put(DOC_LIMITER);
-
+        long startBinary = input.position();
+        int inByte;
+        while ((inByte = bufInput.read()) >= 0) {
+          if (((byte) inByte) == VLogDescriptor.DOC_LIMITER[0]) {
+            long positionMarker = input.position() - 1;
+            byte[] postfix = bufInput.readNBytes(VLogDescriptor.length());
+            VLogDescriptor descriptor = VLogDescriptor.fromBytesWithoutStart(postfix);
+            if ((descriptor == null) || (descriptor.length != positionMarker - startBinary)) {
+              System.out.printf("not found: %d\r\n", positionMarker);
+              input.position(positionMarker + 2);
+            } else {
+              VLogEntryDescription info = new VLogEntryDescription();
+              info.chunkNumber = descriptor.chunkNumber;
+              info.containerName = getName();
+              info.end = input.position();
+              info.family = new String(descriptor.familyBytes, StandardCharsets.UTF_8);
+              info.hash = descriptor.hash;
+              info.key = descriptor.key;
+              info.length = descriptor.length;
+              info.start = start;
+              info.startBinary = startBinary;
+              info.startDescription = positionMarker;
+              entryInfos.add(info);
+            }
+          }
+        }
       }
-
       if (!markerFound) {
         input.position(position + 1);
       }

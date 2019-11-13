@@ -100,7 +100,7 @@ public class BlobStorageImpl implements BlobStorage {
       // only write the first chunk, if an inputstream is availble
       if (in != null) {
         // writing binary data
-        VLogEntryInfo vLogEntryInfo = vlog.put(key, 1, in);
+        VLogEntryInfo vLogEntryInfo = vlog.put(family, key, 1, in);
         ChunkEntry chunkEntry = TransformerHelper.transformVLogEntryInfo2ChunkEntry(vLogEntryInfo, 1, vlog.getName(),
             keyString);
         rocksDBEngine.putDBChunkEntry(family, key, chunkEntry);
@@ -109,7 +109,7 @@ public class BlobStorageImpl implements BlobStorage {
       String jsonBlobEntry = GsonUtils.getJsonMapper().toJson(blobEntry);
       // writing metadata
       ByteArrayInputStream jsonIn = new ByteArrayInputStream(jsonBlobEntry.getBytes(StandardCharsets.UTF_8));
-      VLogEntryInfo vLogEntryInfoJson = vlog.put(key, 0, jsonIn);
+      VLogEntryInfo vLogEntryInfoJson = vlog.put(family, key, 0, jsonIn);
 
       ChunkEntry chunkEntryJson = TransformerHelper.transformVLogEntryInfo2ChunkEntry(vLogEntryInfoJson, 0,
           vlog.getName(), keyString);
