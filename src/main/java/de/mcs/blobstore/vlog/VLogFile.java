@@ -27,7 +27,6 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
-import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.FileChannel;
 import java.nio.channels.ReadableByteChannel;
@@ -128,7 +127,7 @@ public class VLogFile implements Closeable {
     writer.close();
   }
 
-  public VLogEntryInfo put(String family, byte[] key, int chunknumber, InputStream in) throws IOException {
+  public VLogEntryInfo put(String family, byte[] key, int chunknumber, byte[] chunk) throws IOException {
     byte[] familyBytes = family.getBytes(StandardCharsets.UTF_8);
     if (familyBytes.length > VLogDescriptor.KEY_MAX_LENGTH) {
       throw new BlobsDBException("Illegal family length.");
@@ -143,9 +142,6 @@ public class VLogFile implements Closeable {
     VLogEntryInfo info = new VLogEntryInfo();
     info.start = fileChannel.position();
 
-    ByteBuffer buffer = ByteBuffer.allocate(VLogDescriptor.DOC_START.length);
-    buffer.put(VLogDescriptor.DOC_START);
-    buffer.flip();
     fileChannel.write(buffer);
 
     VLogDescriptor vlogDescriptor = new VLogDescriptor();
