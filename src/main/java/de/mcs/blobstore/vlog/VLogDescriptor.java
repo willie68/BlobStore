@@ -19,9 +19,11 @@ public class VLogDescriptor {
   static final int KEY_MAX_LENGTH = 255;
   static final int HASH_LENGTH = 32;
 
-  // because of the headerstructure, 4 bytes DOC_START + 1 byte KEY_LENGTH + FAMILY + 1 byte KEY_LENGTH + KEY
-  // itself + 4 bytes Chunknumber + 8 byte length + 32 byte hash + 1 byte DOC_LIMITER
-  private static final int HEADER_MAX_LENGTH = DOC_LIMITER.length + 1 + KEY_MAX_LENGTH + 1 + KEY_MAX_LENGTH + 4 + 8
+  // because of the headerstructure, 4 bytes DOC_START + 1 byte KEY_LENGTH +
+  // FAMILY + 1 byte KEY_LENGTH + KEY
+  // itself + 4 bytes Chunknumber + 8 byte length + 32 byte hash + 1 byte
+  // DOC_LIMITER
+  private static final int HEADER_MAX_LENGTH = DOC_START.length + 1 + KEY_MAX_LENGTH + 1 + KEY_MAX_LENGTH + 4 + 8
       + HASH_LENGTH + DOC_LIMITER.length;
 
   byte[] familyBytes;
@@ -42,7 +44,7 @@ public class VLogDescriptor {
   ByteBuffer getBytes() {
     ByteBuffer header = ByteBuffer.allocateDirect(HEADER_MAX_LENGTH);
     header.rewind();
-    header.put(DOC_LIMITER);
+    header.put(DOC_START);
     header.put((byte) familyBytes.length);
     header.put(familyBytes);
     header.put((byte) key.length);
@@ -59,7 +61,7 @@ public class VLogDescriptor {
     ByteBuffer buffer = ByteBuffer.wrap(byteArray);
     VLogDescriptor vLogPostFix = new VLogDescriptor();
     // don't read the doc seperator
-    buffer.get();
+    buffer.get(new byte[4]);
     int familyLength = buffer.get();
     vLogPostFix.familyBytes = new byte[familyLength];
     buffer.get(vLogPostFix.familyBytes);
