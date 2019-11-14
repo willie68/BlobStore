@@ -21,7 +21,6 @@
  */
 package de.mcs.blobstore.vlog;
 
-import java.io.BufferedInputStream;
 import java.io.Closeable;
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -220,13 +219,12 @@ public class VLogFile implements Closeable {
     List<VLogEntryDescription> entryInfos = new ArrayList<>();
 
     RandomAccessInputStream input = new RandomAccessInputStream(vLogFile);
-    BufferedInputStream bufInput = new BufferedInputStream(input);
     boolean markerFound = false;
     long position = 0;
-    while (bufInput.available() > 0) {
+    while (input.available() > 0) {
       markerFound = true;
       long start = input.position();
-      byte[] next = bufInput.readNBytes(4);
+      byte[] next = input.readNBytes(4);
       if (next.length != 4) {
         markerFound = false;
       }
@@ -235,20 +233,20 @@ public class VLogFile implements Closeable {
       } else {
         long startBinary = input.position();
         int inByte;
-        while ((inByte = bufInput.read()) >= 0) {
+        while ((inByte = input.read()) >= 0) {
           if (((byte) inByte) == VLogDescriptor.DOC_LIMITER[0]) {
             long positionMarker = input.position() - 1;
-            byte[] postfix = bufInput.readNBytes(VLogDescriptor.length());
+            byte[] postfix = input.readNBytes(VLogDescriptor.length());
             VLogDescriptor descriptor = VLogDescriptor.fromBytesWithoutStart(postfix);
             if ((descriptor == null) || (descriptor.length != positionMarker - startBinary)) {
-              System.out.printf("not found: %d\r\n", positionMarker);
+              // System.out.printf("not found: %d\r\n", positionMarker);
               input.position(positionMarker + 2);
             } else {
               System.out.println("entry found: \r\n");
               VLogEntryDescription info = new VLogEntryDescription();
               info.chunkNumber = descriptor.chunkNumber;
               info.containerName = getName();
-              info.end = input.position();
+              info.end = positionMarker + descriptor.getBytes().limit() - 1;
               info.family = new String(descriptor.familyBytes, StandardCharsets.UTF_8);
               info.hash = descriptor.hash;
               info.key = descriptor.key;
@@ -257,6 +255,8 @@ public class VLogFile implements Closeable {
               info.startBinary = startBinary;
               info.startDescription = positionMarker;
               entryInfos.add(info);
+              input.position(info.end + 1);
+              break;
             }
           }
         }

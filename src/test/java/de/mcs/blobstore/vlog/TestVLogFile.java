@@ -3,7 +3,9 @@
  */
 package de.mcs.blobstore.vlog;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -126,7 +128,7 @@ class TestVLogFile {
     Map<byte[], VLogEntryInfo> infos = new HashMap<>();
     VLogEntryInfo info = null;
     try (VLogFile vLogFile = new VLogFile(options, 2)) {
-      byte[] buffer = new byte[128];
+      byte[] buffer = new byte[1024 * 1024];
       new Random().nextBytes(buffer);
       ByteArrayInputStream in = new ByteArrayInputStream(buffer);
       for (int i = 1; i < 1001; i++) {
@@ -203,10 +205,13 @@ class TestVLogFile {
   public void testIterator() throws IOException {
     System.out.println("test iterator");
     try (VLogFile vLogFile = new VLogFile(options, 2)) {
+      List<VLogEntryDescription> list = new ArrayList<>();
       for (Iterator<VLogEntryDescription> iterator = vLogFile.iterator(); iterator.hasNext();) {
         VLogEntryDescription type = iterator.next();
         System.out.println(type.toJsonString());
+        list.add(type);
       }
+      assertEquals(1000, list.size());
     }
   }
 }
