@@ -38,13 +38,20 @@ public class Options {
    */
   public static Options defaultOptions() {
     return new Options().setvCntCompressAge(0).setvCntCompressionMode(0).setvCntDeleteTreshHold(10)
-        .setvLogAge(1 * 60 * 60 * 1000).setVlogMaxDocCount(10000).setVlogMaxSize(100 * 1024 * 1024).setVlogMaxCount(10);
+        .setvLogAge(1 * 60 * 60 * 1000).setVlogMaxDocCount(10000).setVlogMaxSize(100 * 1024 * 1024).setVlogMaxCount(10)
+        .setVlogChunkSize(1024 * 1024);
   }
 
   /**
    * path to the database folder
    */
   private String path;
+
+  /**
+   * blobs will be chuncked with this size. Defualt value is 1MB.
+   */
+  private int vlogChunkSize;
+
   /**
    * how much is the delete treshhold
    * if the deleted data bytes are > then the treshhold (in percent) than the container will be compacted.
@@ -225,6 +232,23 @@ public class Options {
     StringWriter writer = new StringWriter();
     GsonUtils.getYamlMapper().dump(this, writer);
     return writer.toString();
+  }
+
+  /**
+   * @return the vlogChunkSize
+   */
+  public int getVlogChunkSize() {
+    return vlogChunkSize;
+  }
+
+  /**
+   * @param vlogChunkSize
+   *          the vlogChunkSize to set
+   * @return
+   */
+  public Options setVlogChunkSize(int vlogChunkSize) {
+    this.vlogChunkSize = vlogChunkSize;
+    return this;
   }
 
 }

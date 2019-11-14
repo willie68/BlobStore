@@ -3,7 +3,6 @@
  */
 package de.mcs.blobstore;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -75,7 +74,11 @@ public class BlobStorageImpl implements BlobStorage {
             }
           }
         }
-        compactor.startCompaction();
+        try {
+          compactor.startCompaction();
+        } catch (IOException e) {
+          e.printStackTrace();
+        }
       }
     }, 10, 10, TimeUnit.SECONDS);
   }
@@ -99,17 +102,24 @@ public class BlobStorageImpl implements BlobStorage {
 
       // only write the first chunk, if an inputstream is availble
       if (in != null) {
-        // writing binary data
-        VLogEntryInfo vLogEntryInfo = vlog.put(family, key, 1, in);
-        ChunkEntry chunkEntry = TransformerHelper.transformVLogEntryInfo2ChunkEntry(vLogEntryInfo, 1, vlog.getName(),
-            keyString);
-        rocksDBEngine.putDBChunkEntry(family, key, chunkEntry);
+        int chunkNumber = 1;
+        byte[] chunk;
+        do {
+          chunk = in.readNBytes(options.getVlogChunkSize());
+          if (chunk.length > 0) {
+            // writing binary data
+            VLogEntryInfo vLogEntryInfo = vlog.put(family, key, chunkNumber, chunk);
+            ChunkEntry chunkEntry = TransformerHelper.transformVLogEntryInfo2ChunkEntry(vLogEntryInfo, chunkNumber,
+                vlog.getName(), keyString);
+            rocksDBEngine.putDBChunkEntry(family, key, chunkEntry);
+            chunkNumber++;
+          }
+        } while (chunk.length > 0);
       }
 
       String jsonBlobEntry = GsonUtils.getJsonMapper().toJson(blobEntry);
       // writing metadata
-      ByteArrayInputStream jsonIn = new ByteArrayInputStream(jsonBlobEntry.getBytes(StandardCharsets.UTF_8));
-      VLogEntryInfo vLogEntryInfoJson = vlog.put(family, key, 0, jsonIn);
+      VLogEntryInfo vLogEntryInfoJson = vlog.put(family, key, 0, jsonBlobEntry.getBytes(StandardCharsets.UTF_8));
 
       ChunkEntry chunkEntryJson = TransformerHelper.transformVLogEntryInfo2ChunkEntry(vLogEntryInfoJson, 0,
           vlog.getName(), keyString);
@@ -131,29 +141,26 @@ public class BlobStorageImpl implements BlobStorage {
       if (chunks == null || chunks.size() == 0) {
         throw new BlobsDBException(String.format("chunks not found with key: %s#%s", family, key));
       }
-      ChunkEntry chunk = null;
-      for (ChunkEntry chunkEntry : chunks) {
-        if (chunkEntry.getChunkNumber() == 1) {
-          chunk = chunkEntry;
-          break;
-        }
-      }
-      if (isVLog(chunk)) {
-        VLog vlog = vLogList.getVLog(chunk);
-        return vlog.get(chunk.getStartBinary(), chunk.getLength());
-      }
-      return null;
+      // ChunkEntry chunk = null;
+      //
+      // for (ChunkEntry chunkEntry : chunks) {
+      // if (chunkEntry.getChunkNumber() == 1) {
+      // chunk = chunkEntry;
+      // break;
+      // }
+      // }
+      // if (VLogFile.isVLog(chunk)) {
+      // VLog vlog = vLogList.getVLog(chunk);
+      // return vlog.get(chunk.getStartBinary(), chunk.getLength());
+      // }
+      return new BSChunkedInputStream(vLogList, chunks);
     } catch (RocksDBException e) {
       throw new BlobsDBException(e);
     }
   }
 
-  private boolean isVLog(ChunkEntry chunk) {
-    return chunk.getContainerName().endsWith(".vlog");
-  }
-
   @Override
-  public void put(String family, byte[] key, int chunkNumber, InputStream in) throws IOException {
+  public void put(String family, byte[] key, int chunkNumber, byte[] chunk) throws IOException {
 
   }
 
@@ -200,8 +207,8 @@ public class BlobStorageImpl implements BlobStorage {
   }
 
   @Override
-  public void put(byte[] key, int chunkNumber, InputStream in) throws IOException {
-    put(RocksDBEngine.DEFAULT_COLUMN_FAMILY, key, chunkNumber, in);
+  public void put(byte[] key, int chunkNumber, byte[] chunk) throws IOException {
+    put(RocksDBEngine.DEFAULT_COLUMN_FAMILY, key, chunkNumber, chunk);
   }
 
   @Override

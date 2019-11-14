@@ -10,6 +10,7 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -68,7 +69,7 @@ public class TestBlobStore {
 
   @Test
   public void testSingleFile() throws IOException {
-    byte[] buffer = new byte[1024 * 1024];
+    byte[] buffer = new byte[2 * 1024 * 1024];
     new Random().nextBytes(buffer);
 
     byte[] uuid = ids.getByteID();
@@ -96,9 +97,8 @@ public class TestBlobStore {
     });
 
     try (InputStream inputStream = storage.get(FAMILY, uuid)) {
-      try (InputStream inputOrg = new BufferedInputStream(new ByteArrayInputStream(buffer))) {
-        assertTrue(IOUtils.contentEquals(inputStream, inputOrg));
-      }
+      byte[] allBytes = inputStream.readAllBytes();
+      assertTrue(Arrays.equals(buffer, allBytes));
     }
   }
 
@@ -190,6 +190,7 @@ public class TestBlobStore {
 
     // List<String> dbGetAllKeys = storage.dbGetAllKeys(FAMILY);
 
+    System.out.println(MeasureFactory.asString());
     System.out.println();
     System.out.println("reading");
     int i = 0;

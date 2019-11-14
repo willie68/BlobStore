@@ -70,4 +70,39 @@ public class VLogEntryDescription {
     return GsonUtils.getJsonMapper().toJson(this);
   }
 
+  /**
+   * @return the containerName
+   */
+  public String getContainerName() {
+    return containerName;
+  }
+
+  /**
+   * @return the family
+   */
+  public String getFamily() {
+    return family;
+  }
+
+  /**
+   * @return the key
+   */
+  public byte[] getKey() {
+    return key;
+  }
+
+  /**
+   * @return the chunkNumber
+   */
+  public int getChunkNumber() {
+    return chunkNumber;
+  }
+
+  /**
+   * @return the length
+   */
+  public long getLength() {
+    return length;
+  }
+
 }

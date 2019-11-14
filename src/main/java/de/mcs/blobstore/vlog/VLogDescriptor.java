@@ -5,6 +5,7 @@ package de.mcs.blobstore.vlog;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 
 import de.mcs.utils.ByteArrayUtils;
 
@@ -19,15 +20,8 @@ public class VLogDescriptor {
   static final int KEY_MAX_LENGTH = 255;
   static final int HASH_LENGTH = 32;
 
-<<<<<<< Updated upstream
-  // because of the headerstructure, 4 bytes DOC_START + 1 byte KEY_LENGTH +
-  // FAMILY + 1 byte KEY_LENGTH + KEY
-  // itself + 4 bytes Chunknumber + 8 byte length + 32 byte hash + 1 byte
-  // DOC_LIMITER
-=======
   // because of the headerstructure, 4 bytes DOC_START + 1 byte KEY_LENGTH + FAMILY + 1 byte KEY_LENGTH + KEY
   // itself + 4 bytes Chunknumber + 8 byte length + 32 byte hash + 1 byte DOC_LIMITER
->>>>>>> Stashed changes
   private static final int HEADER_MAX_LENGTH = DOC_START.length + 1 + KEY_MAX_LENGTH + 1 + KEY_MAX_LENGTH + 4 + 8
       + HASH_LENGTH + DOC_LIMITER.length;
 
@@ -58,6 +52,9 @@ public class VLogDescriptor {
     header.putLong(length);
     header.put(hash);
     header.put(DOC_LIMITER);
+    byte[] padding = new byte[header.remaining()];
+    Arrays.fill(padding, (byte) 0);
+    header.put(padding);
     header.flip();
     return header;
   }
@@ -84,6 +81,10 @@ public class VLogDescriptor {
 
   public static VLogDescriptor fromBytesWithoutStart(byte[] byteArray) {
     ByteBuffer buffer = ByteBuffer.wrap(byteArray);
+    return fromByteBufferWithoutStart(buffer);
+  }
+
+  public static VLogDescriptor fromByteBufferWithoutStart(ByteBuffer buffer) {
     VLogDescriptor vLogPostFix = new VLogDescriptor();
     int familyLength = buffer.get();
     if (familyLength < 1) {
@@ -114,6 +115,10 @@ public class VLogDescriptor {
 
   public static int length() {
     return HEADER_MAX_LENGTH;
+  }
+
+  public static int lengthWithoutStart() {
+    return length() - DOC_START.length;
   }
 
 }

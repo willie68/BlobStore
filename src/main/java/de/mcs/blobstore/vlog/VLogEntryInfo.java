@@ -11,7 +11,6 @@ import de.mcs.utils.ByteArrayUtils;
  */
 public class VLogEntryInfo {
   long start;
-  long startDescription;
   long startBinary;
   long end;
   byte[] hash;
@@ -38,7 +37,7 @@ public class VLogEntryInfo {
   }
 
   public long getBinarySize() {
-    return startDescription - startBinary;
+    return end - startBinary + 1;
   }
 
   public long getEnd() {
@@ -47,12 +46,12 @@ public class VLogEntryInfo {
 
   @Override
   public String toString() {
-    return String.format("start: %d, bin: %d, desc: %d, end: %d, hash: %s", start, startBinary, startDescription, end,
+    return String.format("start: %d, bin: %d, end: %d, hash: %s", start, startBinary, end,
         ByteArrayUtils.bytesAsHexString(hash));
   }
 
   public long getDescriptionSize() {
-    return end - startDescription;
+    return startBinary - start;
   }
 
 }

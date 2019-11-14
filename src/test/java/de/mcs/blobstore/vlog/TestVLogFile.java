@@ -3,11 +3,8 @@
  */
 package de.mcs.blobstore.vlog;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
-import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -15,6 +12,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -44,6 +42,7 @@ import de.mcs.utils.Files;
 @TestMethodOrder(OrderAnnotation.class)
 class TestVLogFile {
 
+  private static final int MAX_DOCS = 1000;
   private static final String FAMILY = "EASY";
   private static final String BLOBSTORE_PATH = "e:/temp/blobstore/mydb";
   private static final boolean DELETE_BEFORE_TEST = false;
@@ -89,31 +88,29 @@ class TestVLogFile {
         }
       }
       // new Random().nextBytes(buffer);
-      ByteArrayInputStream in = new ByteArrayInputStream(buffer);
       byte[] byteID = ids.getByteID();
       VLogEntryInfo info;
 
       Monitor m = MeasureFactory.start("write");
       try {
-        info = vLogFile.put(FAMILY, byteID, 1, in);
+        info = vLogFile.put(FAMILY, byteID, 1, buffer);
       } finally {
         m.stop();
       }
 
       System.out.println(info.toString());
 
-      in.reset();
       byteID = ids.getByteID();
       m = MeasureFactory.start("write");
       try {
-        info = vLogFile.put(FAMILY, byteID, 1, in);
+        info = vLogFile.put(FAMILY, byteID, 1, buffer);
       } finally {
         m.stop();
       }
 
       System.out.println(info.toString());
 
-      testFileBin(vLogFile, buffer, in, byteID, info);
+      testFileBin(vLogFile, buffer, byteID, info);
     }
     System.out.println(MeasureFactory.asString());
   }
@@ -130,15 +127,13 @@ class TestVLogFile {
     try (VLogFile vLogFile = new VLogFile(options, 2)) {
       byte[] buffer = new byte[1024 * 1024];
       new Random().nextBytes(buffer);
-      ByteArrayInputStream in = new ByteArrayInputStream(buffer);
-      for (int i = 1; i < 1001; i++) {
-        in.reset();
+      for (int i = 1; i <= MAX_DOCS; i++) {
         byte[] id = ids.getByteID();
+        descs.add(id);
         String idStr = UUID.nameUUIDFromBytes(id).toString();
         Monitor m = MeasureFactory.start("write");
         try {
-          descs.add(id);
-          info = vLogFile.put(FAMILY, id, 1, in);
+          info = vLogFile.put(FAMILY, id, 1, buffer);
         } finally {
           m.stop();
         }
@@ -153,20 +148,54 @@ class TestVLogFile {
       for (byte[] id : descs) {
 
         System.out.println(infos.get(id).toString());
-        in.reset();
 
-        testFileBin(vLogFile, buffer, in, id, infos.get(id));
+        testFileBin(vLogFile, buffer, id, infos.get(id));
       }
     }
+
+    System.out.println("test iterator");
+
+    List<String> myIds = new ArrayList<>();
+    Map<String, VLogEntryInfo> myMap = new HashMap<>();
+    descs.forEach(k -> {
+      myIds.add(ByteArrayUtils.bytesAsHexString(k));
+      VLogEntryInfo vLogEntryInfo = infos.get(k);
+      myMap.put(ByteArrayUtils.bytesAsHexString(k), vLogEntryInfo);
+    });
+
+    int count = 0;
+    try (VLogFile vLogFile = new VLogFile(options, 2)) {
+      List<VLogEntryDescription> list = new ArrayList<>();
+      for (Iterator<VLogEntryDescription> iterator = vLogFile.iterator(); iterator.hasNext();) {
+        VLogEntryDescription type = iterator.next();
+        System.out.println(type.toJsonString());
+        list.add(type);
+        String key = ByteArrayUtils.bytesAsHexString(type.getKey());
+        if (myIds.contains(key)) {
+          count++;
+          myIds.remove(key);
+        }
+        VLogEntryInfo vLogEntryInfo = myMap.get(key);
+        assertNotNull(vLogEntryInfo);
+        assertEquals(vLogEntryInfo.end, type.end);
+        assertTrue(Arrays.equals(vLogEntryInfo.hash, type.hash));
+        assertEquals(vLogEntryInfo.start, type.start);
+        assertEquals(vLogEntryInfo.startBinary, type.startBinary);
+        assertEquals(1, type.chunkNumber);
+        assertEquals(vLogFile.getName(), type.containerName);
+        assertEquals("EASY", type.family);
+        assertEquals(vLogEntryInfo.getBinarySize(), type.length);
+      }
+      assertEquals(MAX_DOCS, list.size());
+      assertEquals(0, myIds.size());
+    }
+
     System.out.printf("error on id: %d\r\n", ids.getErrorCount());
     System.out.println(MeasureFactory.asString());
   }
 
-  private void testFileBin(VLogFile vLogFile, byte[] buffer, ByteArrayInputStream in, byte[] byteId, VLogEntryInfo info)
-      throws IOException {
-    in.reset();
+  private void testFileBin(VLogFile vLogFile, byte[] buffer, byte[] byteId, VLogEntryInfo info) throws IOException {
     ByteArrayOutputStream out = new ByteArrayOutputStream(1024 * 1024 * 2);
-
     out.reset();
     Monitor m = MeasureFactory.start("readBin");
     try {
@@ -178,13 +207,12 @@ class TestVLogFile {
       m.stop();
     }
 
-    ByteArrayInputStream inputStream = new ByteArrayInputStream(out.toByteArray());
-    assertTrue(IOUtils.contentEquals(inputStream, in));
+    assertTrue(Arrays.equals(buffer, out.toByteArray()));
 
     out.reset();
     m = MeasureFactory.start("readDescr");
     try {
-      try (InputStream input = vLogFile.get(info.startDescription, info.getDescriptionSize())) {
+      try (InputStream input = vLogFile.get(info.start, info.getDescriptionSize())) {
         assertNotNull(input);
         IOUtils.copy(input, out);
       }
@@ -194,6 +222,7 @@ class TestVLogFile {
 
     VLogDescriptor descriptor = VLogDescriptor.fromBytes(out.toByteArray());
     assertEquals(info.getBinarySize(), descriptor.length);
+    assertEquals(buffer.length, descriptor.length);
     assertEquals(ByteArrayUtils.bytesAsHexString(info.hash), ByteArrayUtils.bytesAsHexString(descriptor.hash));
     assertEquals(ByteArrayUtils.bytesAsHexString(byteId), ByteArrayUtils.bytesAsHexString(descriptor.key));
     assertEquals(FAMILY, new String(descriptor.familyBytes, StandardCharsets.UTF_8));
@@ -203,15 +232,5 @@ class TestVLogFile {
   @Order(3)
   @Test
   public void testIterator() throws IOException {
-    System.out.println("test iterator");
-    try (VLogFile vLogFile = new VLogFile(options, 2)) {
-      List<VLogEntryDescription> list = new ArrayList<>();
-      for (Iterator<VLogEntryDescription> iterator = vLogFile.iterator(); iterator.hasNext();) {
-        VLogEntryDescription type = iterator.next();
-        System.out.println(type.toJsonString());
-        list.add(type);
-      }
-      assertEquals(1000, list.size());
-    }
   }
 }

@@ -38,10 +38,10 @@ public class VLogCompactor {
 
   public void startCompaction() throws IOException {
     if (toCompact.size() > 0) {
-      log.info("start compaction of vLog files");
+      // log.info("start compaction of vLog files");
       for (VLog vLog : toCompact) {
-        log.info("vlog: %s", vLog.getName());
-        vLog.getvLogFile().iterator();
+        // log.info("vlog: %s", vLog.getName());
+        // vLog.getvLogFile().iterator();
       }
     }
   }

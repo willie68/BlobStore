@@ -7,7 +7,7 @@ public interface BlobStorage {
 
   void put(byte[] key, InputStream in, Metadata metadata) throws IOException;
 
-  void put(byte[] key, int chunkNumber, InputStream in) throws IOException;
+  void put(byte[] key, int chunkNumber, byte[] chunk) throws IOException;
 
   InputStream get(byte[] key) throws IOException;
 
@@ -19,7 +19,7 @@ public interface BlobStorage {
 
   void put(String family, byte[] key, InputStream in, Metadata metadata) throws IOException;
 
-  void put(String family, byte[] key, int chunkNumber, InputStream in) throws IOException;
+  void put(String family, byte[] key, int chunkNumber, byte[] chunk) throws IOException;
 
   InputStream get(String family, byte[] key) throws IOException;
 
