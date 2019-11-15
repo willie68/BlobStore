@@ -82,7 +82,8 @@ public class Options {
   long vlogMaxSize;
 
   /**
-   * maximum count of chunks in a vLog file. If the count is > than that, the vLog file will be marked for compacting and
+   * maximum count of chunks in a vLog file. If the count is > than that, the vLog file will be marked for compacting
+   * and
    * as read only
    */
   long vlogMaxChunkCount;

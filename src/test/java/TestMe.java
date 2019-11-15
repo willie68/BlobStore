@@ -28,8 +28,8 @@ class TestMe {
   void test() {
     byte[] bytes = new byte[32];
     new Random().nextBytes(bytes);
-    // assertEquals(HasherUtils.bytesAsHexString(bytes).toLowerCase(),
-    // HasherUtils.encodeHexString(bytes).toLowerCase());
+    // assertEquals(HashUtils.bytesAsHexString(bytes).toLowerCase(),
+    // HashUtils.encodeHexString(bytes).toLowerCase());
 
     for (int x = 0; x < 100; x++) {
       Monitor monOld = MeasureFactory.start("new hex");

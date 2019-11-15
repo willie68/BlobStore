@@ -97,7 +97,7 @@ public class BlobStorageImpl implements BlobStorage {
     blobEntry.setFamily(family).setKey(keyString).setMetadata(metadata).setTimestamp(new Date().getTime())
         .setRetention(metadata.getRetention()).setStatus(BlobEntry.Status.CREATED);
 
-    try (VLog vlog = vLogList.getNextAvailableVLog()) {
+    try {
       rocksDBEngine.putDBBlobEntry(family, key, blobEntry);
 
       // only write the first chunk, if an inputstream is availble
@@ -108,23 +108,25 @@ public class BlobStorageImpl implements BlobStorage {
           chunk = in.readNBytes(options.getVlogChunkSize());
           if (chunk.length > 0) {
             // writing binary data
-            VLogEntryInfo vLogEntryInfo = vlog.put(family, key, chunkNumber, chunk);
-            ChunkEntry chunkEntry = TransformerHelper.transformVLogEntryInfo2ChunkEntry(vLogEntryInfo, chunkNumber,
-                vlog.getName(), keyString);
-            rocksDBEngine.putDBChunkEntry(family, key, chunkEntry);
+            try (VLog vLog = vLogList.getNextAvailableVLog()) {
+              VLogEntryInfo vLogEntryInfo = vLog.put(family, key, chunkNumber, chunk);
+              ChunkEntry chunkEntry = TransformerHelper.transformVLogEntryInfo2ChunkEntry(vLogEntryInfo, chunkNumber,
+                  vLog.getName(), keyString);
+              rocksDBEngine.putDBChunkEntry(family, key, chunkEntry);
+            }
             chunkNumber++;
           }
         } while (chunk.length > 0);
+
+        String jsonBlobEntry = GsonUtils.getJsonMapper().toJson(blobEntry);
+        // writing metadata
+        try (VLog vLog = vLogList.getNextAvailableVLog()) {
+          VLogEntryInfo vLogEntryInfoJson = vLog.put(family, key, 0, jsonBlobEntry.getBytes(StandardCharsets.UTF_8));
+          ChunkEntry chunkEntryJson = TransformerHelper.transformVLogEntryInfo2ChunkEntry(vLogEntryInfoJson, 0,
+              vLog.getName(), keyString);
+          rocksDBEngine.putDBChunkEntry(family, key, chunkEntryJson);
+        }
       }
-
-      String jsonBlobEntry = GsonUtils.getJsonMapper().toJson(blobEntry);
-      // writing metadata
-      VLogEntryInfo vLogEntryInfoJson = vlog.put(family, key, 0, jsonBlobEntry.getBytes(StandardCharsets.UTF_8));
-
-      ChunkEntry chunkEntryJson = TransformerHelper.transformVLogEntryInfo2ChunkEntry(vLogEntryInfoJson, 0,
-          vlog.getName(), keyString);
-      rocksDBEngine.putDBChunkEntry(family, key, chunkEntryJson);
-
     } catch (RocksDBException e) {
       throw new BlobsDBException(e);
     }

@@ -3,9 +3,7 @@
  */
 package de.mcs.blobstore.vlog;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -65,7 +63,7 @@ class TestVLogFile {
       deleteFolder();
     }
     options = Options.defaultOptions().setPath(BLOBSTORE_PATH).setVlogMaxChunkCount(10000)
-        .setVlogMaxSize(2048 * 1024 * 1024);
+        .setVlogMaxSize(2048L * 1024L * 1024L);
   }
 
   private void deleteFolder() throws IOException, InterruptedException {

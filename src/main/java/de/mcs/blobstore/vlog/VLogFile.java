@@ -43,8 +43,8 @@ import org.apache.commons.io.input.BoundedInputStream;
 import de.mcs.blobstore.BlobsDBException;
 import de.mcs.blobstore.ChunkEntry;
 import de.mcs.blobstore.Options;
-import de.mcs.utils.HasherUtils;
-import de.mcs.utils.HasherUtils.Algorithm;
+import de.mcs.utils.HashUtils;
+import de.mcs.utils.HashUtils.Algorithm;
 import de.mcs.utils.io.RandomAccessInputStream;
 import de.mcs.utils.logging.Logger;
 
@@ -147,7 +147,7 @@ public class VLogFile implements Closeable {
     }
     // calculating hash of chunk
     ByteArrayInputStream in = new ByteArrayInputStream(chunk);
-    byte[] digest = HasherUtils.hash(HasherUtils.Algorithm.SHA_256.getMessageDigest(), in);
+    byte[] digest = HashUtils.hash(messageDigest, in);
     in.reset();
 
     VLogEntryInfo info = new VLogEntryInfo();
