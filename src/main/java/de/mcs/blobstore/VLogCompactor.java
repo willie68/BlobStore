@@ -1,5 +1,6 @@
 package de.mcs.blobstore;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -35,11 +36,12 @@ public class VLogCompactor {
     toCompact.add(vLog);
   }
 
-  public void startCompaction() {
+  public void startCompaction() throws IOException {
     if (toCompact.size() > 0) {
-      log.info("start compaction of vLog files");
+      // log.info("start compaction of vLog files");
       for (VLog vLog : toCompact) {
-        log.info("vlog: %s", vLog.getName());
+        // log.info("vlog: %s", vLog.getName());
+        // vLog.getvLogFile().iterator();
       }
     }
   }

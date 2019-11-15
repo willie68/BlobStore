@@ -4,16 +4,11 @@
 package de.mcs.blobstore.vlog;
 
 import java.io.Closeable;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
-import java.util.List;
 import java.util.concurrent.locks.ReentrantLock;
 
-import de.mcs.utils.io.RandomAccessInputStream;
 import de.mcs.utils.logging.Logger;
 
 /**
@@ -61,8 +56,8 @@ public class VLog implements Closeable {
     return vLogFile.getName();
   }
 
-  public VLogEntryInfo put(byte[] key, int chunk, InputStream in) throws IOException {
-    return getvLogFile().put(key, chunk, in);
+  public VLogEntryInfo put(String family, byte[] key, int chunkNumber, byte[] chunk) throws IOException {
+    return getvLogFile().put(family, key, chunkNumber, chunk);
   }
 
   public void forReading() {
@@ -89,8 +84,8 @@ public class VLog implements Closeable {
     return writeLock.isLocked();
   }
 
-  public Iterator<VLogEntryInfo> getIterator() throws IOException {
-    return vLogFile.getIterator();
+  public Iterator<VLogEntryDescription> getIterator() throws IOException {
+    return vLogFile.iterator();
   }
 
 }

@@ -4,24 +4,22 @@ import java.io.BufferedInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
 /**
  * Utility class to provide encryption functionalities.
  * 
- * @author s.laurien
+ * @author w.klaas
  *
  */
-public class HasherUtils {
+public class HashUtils {
 
   /**
    * Enumeration to define the encryption algorithm.
    * 
-   * @author s.laurien
+   * @author w.klaas
    *
    */
   public static enum Algorithm {
@@ -105,7 +103,8 @@ public class HasherUtils {
    * @return
    * @throws IOException
    */
-  private static byte[] hash(MessageDigest digest, Path path) throws IOException {
+  public static byte[] hash(MessageDigest digest, Path path) throws IOException {
+    digest.reset();
     try (BufferedInputStream fis = new BufferedInputStream(new FileInputStream(path.toFile()))) {
       return hash(digest, fis);
     }
@@ -118,23 +117,13 @@ public class HasherUtils {
    * @return
    * @throws IOException
    */
-  private static byte[] hash(MessageDigest digest, InputStream input) throws IOException {
+  public static byte[] hash(MessageDigest digest, InputStream input) throws IOException {
+    digest.reset();
     byte[] dataBytes = new byte[1024];
     int nread = 0;
     while ((nread = input.read(dataBytes)) != -1)
       digest.update(dataBytes, 0, nread);
     return digest.digest();
-  }
-
-  public static void main(String[] args) {
-    try {
-      System.out.println(HasherUtils.hash(Algorithm.MD5, Paths.get(URI.create("file:/home/slaurien/Test/mytest.txt"))));
-      System.out.println(HasherUtils.hash(Algorithm.MD5, Paths.get(URI.create("file:/home/slaurien/Test/mytest.txt"))));
-      System.out
-          .println(HasherUtils.hash(Algorithm.MD5, Paths.get(URI.create("file:/home/slaurien/Test/mytest2.txt"))));
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
   }
 
 }

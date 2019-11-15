@@ -10,6 +10,7 @@ import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -22,6 +23,7 @@ import org.apache.log4j.Logger;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 
 import de.mcs.blobstore.utils.QueuedIDGenerator;
@@ -57,8 +59,8 @@ public class TestBlobStore {
       Thread.sleep(100);
     }
     filePath.mkdirs();
-    storage = new BlobStorageImpl(
-        Options.defaultOptions().setPath(filePath.getAbsolutePath()).setVlogMaxSize(10 * 1024 * 1024));
+    storage = new BlobStorageImpl(Options.defaultOptions().setPath(filePath.getAbsolutePath())
+        .setVlogMaxSize(100 * 1024 * 1024).setVlogChunkSize(512 * 1024));
   }
 
   @After
@@ -66,9 +68,14 @@ public class TestBlobStore {
     storage.close();
   }
 
+  @AfterAll
+  public void afterAll() {
+    System.out.println(MeasureFactory.asString());
+  }
+
   @Test
   public void testSingleFile() throws IOException {
-    byte[] buffer = new byte[1024 * 1024];
+    byte[] buffer = new byte[2 * 1024 * 1024];
     new Random().nextBytes(buffer);
 
     byte[] uuid = ids.getByteID();
@@ -96,10 +103,70 @@ public class TestBlobStore {
     });
 
     try (InputStream inputStream = storage.get(FAMILY, uuid)) {
-      try (InputStream inputOrg = new BufferedInputStream(new ByteArrayInputStream(buffer))) {
-        assertTrue(IOUtils.contentEquals(inputStream, inputOrg));
+      byte[] allBytes = inputStream.readAllBytes();
+      assertTrue(Arrays.equals(buffer, allBytes));
+    }
+  }
+
+  @Test
+  public void testBigFile() throws IOException {
+    byte[] buffer = new byte[Integer.MAX_VALUE / 2];
+    new Random().nextBytes(buffer);
+
+    byte[] uuid = ids.getByteID();
+    Metadata metadata = new Metadata().setContentLength(0).setContentType("text/simple").setRetention(1234567)
+        .setProperty(MYMETADATA, MYMETADATVALUE);
+    try (InputStream in = new ByteArrayInputStream(buffer)) {
+      Monitor m = MeasureFactory.start("writeBig");
+      try {
+        storage.put(FAMILY, uuid, in, metadata);
+      } finally {
+        m.stop();
       }
     }
+    assertFalse(storage.has(uuid));
+    Monitor m = MeasureFactory.start("testBig");
+    try {
+      assertTrue(storage.has(FAMILY, uuid));
+    } finally {
+      m.stop();
+    }
+
+    Assertions.assertThrows(BlobsDBException.class, () -> {
+      Metadata metadataNotStored = storage.getMetadata(uuid);
+    });
+
+    Metadata metadataStored;
+    m = MeasureFactory.start("readBig-Meta");
+    try {
+      metadataStored = storage.getMetadata(FAMILY, uuid);
+    } finally {
+      m.stop();
+    }
+    assertNotNull(metadataStored);
+    assertEquals(metadata.getContentType(), metadataStored.getContentType());
+    assertEquals(buffer.length, metadataStored.getContentLength());
+    assertEquals(metadata.getRetention(), metadataStored.getRetention());
+    assertEquals(metadata.getProperty(MYMETADATA), metadataStored.getProperty(MYMETADATA));
+
+    Assertions.assertThrows(BlobsDBException.class, () -> {
+      InputStream noInputStream = storage.get(uuid);
+    });
+
+    InputStream inputStream = storage.get(FAMILY, uuid);
+    try {
+      byte[] allBytes;
+      m = MeasureFactory.start("readBig-Meta");
+      try {
+        allBytes = inputStream.readAllBytes();
+      } finally {
+        m.stop();
+      }
+      assertTrue(Arrays.equals(buffer, allBytes));
+    } finally {
+      inputStream.close();
+    }
+    System.out.println(MeasureFactory.asString());
   }
 
   @Test
@@ -190,6 +257,7 @@ public class TestBlobStore {
 
     // List<String> dbGetAllKeys = storage.dbGetAllKeys(FAMILY);
 
+    System.out.println(MeasureFactory.asString());
     System.out.println();
     System.out.println("reading");
     int i = 0;
