@@ -1,3 +1,18 @@
+/**
+ * Copyright 2019 w.klaas
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package de.mcs.blobstore;
 
 import static org.junit.Assert.assertFalse;
@@ -20,11 +35,13 @@ import java.util.concurrent.TimeUnit;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.log4j.Logger;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.Test;
 
 import de.mcs.blobstore.utils.QueuedIDGenerator;
 import de.mcs.jmeasurement.JMConfig;
@@ -44,13 +61,23 @@ public class TestBlobStore {
   private Logger log = Logger.getLogger(this.getClass());
 
   private BlobStorageImpl storage;
-  private QueuedIDGenerator ids;
+  private static QueuedIDGenerator ids;
   private File filePath;
 
-  @Before
+  @BeforeAll
+  public static void beforeAll() {
+    System.out.println("new id generator");
+    try {
+      ids = new QueuedIDGenerator(1000);
+    } catch (Error e) {
+      e.printStackTrace();
+    }
+  }
+
+  @BeforeEach
   public void setUp() throws Exception {
+    System.out.println("setup");
     MeasureFactory.setOption(JMConfig.OPTION_DISABLE_DEVIATION, "true");
-    ids = new QueuedIDGenerator(1000);
     Thread.sleep(1000);
 
     filePath = new File("e:/temp/blobstore/mydb");
@@ -63,18 +90,20 @@ public class TestBlobStore {
         .setVlogMaxSize(100 * 1024 * 1024).setVlogChunkSize(512 * 1024));
   }
 
-  @After
+  @AfterEach
   public void tearDown() throws Exception {
     storage.close();
   }
 
   @AfterAll
-  public void afterAll() {
+  public static void afterAll() {
     System.out.println(MeasureFactory.asString());
   }
 
+  @Order(1)
   @Test
   public void testSingleFile() throws IOException {
+    System.out.println("testing single file.");
     byte[] buffer = new byte[2 * 1024 * 1024];
     new Random().nextBytes(buffer);
 
@@ -108,8 +137,10 @@ public class TestBlobStore {
     }
   }
 
+  @Order(2)
   @Test
   public void testBigFile() throws IOException {
+    System.out.println("testing big file");
     byte[] buffer = new byte[Integer.MAX_VALUE / 2];
     new Random().nextBytes(buffer);
 
@@ -169,10 +200,10 @@ public class TestBlobStore {
     System.out.println(MeasureFactory.asString());
   }
 
+  @Order(3)
   @Test
   public void testCRUD() throws IOException {
-
-    System.out.println("create new blob file");
+    System.out.println("testing CRUD operations");
     byte[] buffer = new byte[128];
     new Random().nextBytes(buffer);
 
@@ -223,8 +254,10 @@ public class TestBlobStore {
 
   }
 
+  @Order(4)
   @Test
   public void test1000() throws Exception {
+    System.out.println("testing 1 thread 1000 blobs");
     byte[] buffer = new byte[1024 * 1024 * 1];
 
     Map<String, Metadata> myIds = new HashMap<>();
@@ -305,8 +338,10 @@ public class TestBlobStore {
     System.out.println(MeasureFactory.asString());
   }
 
+  @Order(5)
   @Test
   public void test1000Multithreaded() throws Exception {
+    System.out.println("testing 10 thread 1000 blobs");
     ScheduledExecutorService executor = Executors.newScheduledThreadPool(10);
 
     Map<String, Metadata> myIds = new HashMap<>();
