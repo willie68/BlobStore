@@ -3,7 +3,9 @@
  */
 package de.mcs.blobstore.vlog;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -45,7 +47,7 @@ class TestVLogFile {
   private static final int MAX_DOCS = 1000;
   private static final String FAMILY = "EASY";
   private static final String BLOBSTORE_PATH = "e:/temp/blobstore/mydb";
-  private static final boolean DELETE_BEFORE_TEST = false;
+  private static final boolean DELETE_BEFORE_TEST = true;
   private File filePath;
   private QueuedIDGenerator ids;
   private Options options;
@@ -62,7 +64,8 @@ class TestVLogFile {
     if (DELETE_BEFORE_TEST) {
       deleteFolder();
     }
-    options = Options.defaultOptions().setPath(BLOBSTORE_PATH);
+    options = Options.defaultOptions().setPath(BLOBSTORE_PATH).setVlogMaxChunkCount(10000)
+        .setVlogMaxSize(2048 * 1024 * 1024);
   }
 
   private void deleteFolder() throws IOException, InterruptedException {

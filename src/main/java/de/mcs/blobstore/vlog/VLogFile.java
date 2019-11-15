@@ -32,6 +32,7 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -64,6 +65,7 @@ public class VLogFile implements Closeable {
   private Options options;
   private int chunkCount;
   private boolean readOnly;
+  private MessageDigest messageDigest;
 
   public static File getFilePathName(File path, int number) {
     String internalName = String.format("vlog_%04d.vlog", number);
@@ -76,6 +78,7 @@ public class VLogFile implements Closeable {
 
   private VLogFile() {
     chunkCount = -1;
+    messageDigest = Algorithm.SHA_256.getMessageDigest();
   }
 
   public VLogFile(Options options, int number) throws IOException {
@@ -139,12 +142,12 @@ public class VLogFile implements Closeable {
     if (key.length > VLogDescriptor.KEY_MAX_LENGTH) {
       throw new BlobsDBException("Illegal key length.");
     }
-    if (isReadOnly()) {
-      throw new BlobsDBException(String.format("VLogfile %s is read only.", internalName));
+    if (!isAvailbleForWriting()) {
+      throw new BlobsDBException(String.format("VLogfile %s is not availble for writing.", internalName));
     }
     // calculating hash of chunk
     ByteArrayInputStream in = new ByteArrayInputStream(chunk);
-    byte[] digest = HasherUtils.hash(Algorithm.SHA_256.getMessageDigest(), in);
+    byte[] digest = HasherUtils.hash(HasherUtils.Algorithm.SHA_256.getMessageDigest(), in);
     in.reset();
 
     VLogEntryInfo info = new VLogEntryInfo();
@@ -166,7 +169,7 @@ public class VLogFile implements Closeable {
 
     info.end = fileChannel.position() - 1;
     fileChannel.force(true);
-
+    chunkCount++;
     return info;
   }
 
@@ -180,7 +183,13 @@ public class VLogFile implements Closeable {
   }
 
   public boolean isAvailbleForWriting() {
+    if (readOnly) {
+      return false;
+    }
     if (getSize() > options.getVlogMaxSize()) {
+      return false;
+    }
+    if (getChunkCount() > options.getVlogMaxChunkCount()) {
       return false;
     }
     return true;

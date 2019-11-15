@@ -38,8 +38,8 @@ public class Options {
    */
   public static Options defaultOptions() {
     return new Options().setvCntCompressAge(0).setvCntCompressionMode(0).setvCntDeleteTreshHold(10)
-        .setvLogAge(1 * 60 * 60 * 1000).setVlogMaxDocCount(10000).setVlogMaxSize(100 * 1024 * 1024).setVlogMaxCount(10)
-        .setVlogChunkSize(1024 * 1024);
+        .setvLogAge(1 * 60 * 60 * 1000).setVlogMaxChunkCount(10000).setVlogMaxSize(100 * 1024 * 1024)
+        .setVlogMaxFileCount(10).setVlogChunkSize(1024 * 1024);
   }
 
   /**
@@ -73,7 +73,7 @@ public class Options {
    * Any put will than have to wait, until another vlog file is ready for taking this request or a
    * older vlog file has been compacted.
    */
-  private long vlogMaxCount;
+  private long vlogMaxFileCount;
 
   /**
    * maximum size of a vLog file. If the file is > than that, the vLog file will be marked for compacting and as read
@@ -82,10 +82,10 @@ public class Options {
   long vlogMaxSize;
 
   /**
-   * maximum count of docs of a vLog file. If the count is > than that, the vLog file will be marked for compacting and
+   * maximum count of chunks in a vLog file. If the count is > than that, the vLog file will be marked for compacting and
    * as read only
    */
-  long vlogMaxDocCount;
+  long vlogMaxChunkCount;
 
   /**
    * if the last write access is oldeer than that, the vLog file will be marked for compacting and as read only
@@ -158,18 +158,18 @@ public class Options {
   }
 
   /**
-   * @return the vlogMaxDocCount
+   * @return the vlogMaxChunkCount
    */
-  public long getVlogMaxDocCount() {
-    return vlogMaxDocCount;
+  public long getVlogMaxChunkCount() {
+    return vlogMaxChunkCount;
   }
 
   /**
-   * @param vlogMaxDocCount
-   *          the vlogMaxDocCount to set
+   * @param vlogMaxChunkCount
+   *          the vlogMaxChunkCount to set
    */
-  public Options setVlogMaxDocCount(long vlogMaxDocCount) {
-    this.vlogMaxDocCount = vlogMaxDocCount;
+  public Options setVlogMaxChunkCount(long vlogMaxChunkCount) {
+    this.vlogMaxChunkCount = vlogMaxChunkCount;
     return this;
   }
 
@@ -209,17 +209,17 @@ public class Options {
   /**
    * @return the vlogMaxCount
    */
-  public long getVlogMaxCount() {
-    return vlogMaxCount;
+  public long getVlogMaxFileCount() {
+    return vlogMaxFileCount;
   }
 
   /**
-   * @param vlogMaxCount
+   * @param vlogMaxFileCount
    *          the vlogMaxCount to set
    * @return
    */
-  public Options setVlogMaxCount(long vlogMaxCount) {
-    this.vlogMaxCount = vlogMaxCount;
+  public Options setVlogMaxFileCount(long vlogMaxFileCount) {
+    this.vlogMaxFileCount = vlogMaxFileCount;
     return this;
   }
 
