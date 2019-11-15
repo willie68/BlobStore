@@ -16,12 +16,20 @@
 package de.mcs.blobstore.container;
 
 import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayInputStream;
+import java.io.Closeable;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.io.RandomAccessFile;
+import java.io.Reader;
+import java.io.Writer;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
@@ -38,22 +46,26 @@ import de.mcs.blobstore.Options;
 import de.mcs.blobstore.vlog.VLogDescriptor;
 import de.mcs.blobstore.vlog.VLogEntryDescription;
 import de.mcs.blobstore.vlog.VLogEntryInfo;
-import de.mcs.blobstore.vlog.VLogFile;
+import de.mcs.utils.GsonUtils;
 import de.mcs.utils.HashUtils;
 import de.mcs.utils.io.RandomAccessInputStream;
 import de.mcs.utils.logging.Logger;
 
-public class ContainerFile {
+public class ContainerFile implements Closeable {
 
   private Logger log = Logger.getLogger(this.getClass());
   private String internalName;
   private File contFile;
   private File jsonFile;
   private FileChannel fileChannel;
-  private RandomAccessFile writer;
+  private RandomAccessFile raf;
   private Options options;
-  private int chunkCount;
-  private boolean readOnly;
+  private ContainerProperties containerProperties;
+
+  public static File getJsonFilePathName(File path, int number) {
+    String internalName = String.format("cont_%04d.json", number);
+    return new File(path, internalName);
+  }
 
   public static File getFilePathName(File path, int number) {
     String internalName = String.format("cont_%04d.cont", number);
@@ -65,47 +77,65 @@ public class ContainerFile {
   }
 
   private ContainerFile() {
-    chunkCount = -1;
   }
 
-  public ContainerFile(Options options, int number) throws IOException {
+  public ContainerFile(Options options, String family, int number) throws IOException {
     this();
     this.options = options;
-    this.contFile = getFilePathName(new File(options.getPath()), number);
-    init();
-  }
-
-  public ContainerFile(Options options, File file) throws IOException {
-    this();
-    this.options = options;
-    this.contFile = file;
+    File path = new File(options.getPath(), family);
+    if (!path.exists()) {
+      path.mkdirs();
+    }
+    this.contFile = getFilePathName(path, number);
+    this.jsonFile = getJsonFilePathName(path, number);
     init();
   }
 
   private void init() throws IOException {
     internalName = contFile.getName();
-    if (contFile.exists()) {
-      loadLogFile();
+    loadJsonFile();
+
+    if (containerProperties.isReadOnly()) {
+      loadContFile();
     } else {
-      initLogFile();
+      initContFile();
     }
   }
 
-  private void loadLogFile() throws IOException {
-    log.debug("loading vlog file: %s", internalName);
-    writer = new RandomAccessFile(contFile, "r");
-    writer.seek(writer.length());
-    fileChannel = writer.getChannel();
-    chunkCount = -1;
-    readOnly = true;
+  private void loadJsonFile() {
+    try {
+      if (jsonFile.exists()) {
+        Reader reader = new InputStreamReader(new BufferedInputStream(new FileInputStream(jsonFile)));
+        this.containerProperties = GsonUtils.getJsonMapper().fromJson(reader, ContainerProperties.class);
+      } else {
+        this.containerProperties = new ContainerProperties().setName(getName()).setReadOnly(false).setChunkCount(0);
+      }
+    } catch (FileNotFoundException e) {
+      // should never occure
+      log.error(e);
+    }
   }
 
-  private void initLogFile() throws FileNotFoundException {
-    log.debug("creating new vlog file: %s", internalName);
-    writer = new RandomAccessFile(contFile, "rw");
-    fileChannel = writer.getChannel();
-    chunkCount = 0;
-    readOnly = false;
+  private void saveJsonFile() {
+    try {
+      Writer writer = new OutputStreamWriter(new BufferedOutputStream(new FileOutputStream(jsonFile)));
+      GsonUtils.getJsonMapper().toJson(this.containerProperties, writer);
+    } catch (FileNotFoundException e) {
+      // should never occure
+      log.error(e);
+    }
+  }
+
+  private void loadContFile() throws IOException {
+    log.debug("loading container file for reading: %s", internalName);
+    raf = new RandomAccessFile(contFile, "r");
+    fileChannel = raf.getChannel();
+  }
+
+  private void initContFile() throws FileNotFoundException {
+    log.debug("open container file for writing: %s", internalName);
+    raf = new RandomAccessFile(contFile, "rw");
+    fileChannel = raf.getChannel();
   }
 
   public String getName() {
@@ -118,7 +148,7 @@ public class ContainerFile {
       fileChannel.force(true);
       fileChannel.close();
     }
-    writer.close();
+    raf.close();
   }
 
   public VLogEntryInfo put(String family, byte[] key, int chunknumber, byte[] chunk) throws IOException {
@@ -170,13 +200,13 @@ public class ContainerFile {
   }
 
   public boolean isAvailbleForWriting() {
-    if (readOnly) {
+    if (containerProperties.isReadOnly()) {
       return false;
     }
-    if (getSize() > options.getVlogMaxSize()) {
+    if (getSize() > options.getvCntMaxSize()) {
       return false;
     }
-    if (getChunkCount() > options.getVlogMaxChunkCount()) {
+    if (getChunkCount() > options.getvCntMaxChunkCount()) {
       return false;
     }
     return true;
@@ -185,24 +215,15 @@ public class ContainerFile {
   /**
    * @return the chunkCount
    */
-  public int getChunkCount() {
-    return chunkCount;
+  public long getChunkCount() {
+    return containerProperties.getChunkCount();
   }
 
   /**
    * @return the readOnly
    */
   public boolean isReadOnly() {
-    return readOnly;
-  }
-
-  public VLogFile setReadOnly(boolean readonly) {
-    this.readOnly = readonly;
-    return this;
-  }
-
-  public File getFile() {
-    return contFile;
+    return containerProperties.isReadOnly();
   }
 
   public Iterator<VLogEntryDescription> iterator() throws IOException {

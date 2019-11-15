@@ -63,6 +63,17 @@ public class Options {
   int vCntCompressionMode;
 
   /**
+   * maximum size of a container file. If the file is > than that, the container file will be marked as read only
+   */
+  long vCntMaxSize;
+
+  /**
+   * maximum count of chunks in a container file. If the count is > than that, the container file will be marked for
+   * compacting and marked as read only
+   */
+  long vCntMaxChunkCount;
+
+  /**
    * maximum count of vLog files. If the count is > than that, a new vLog file will not be created.
    * Any put will than have to wait, until another vlog file is ready for taking this request or a
    * older vlog file has been compacted.
@@ -243,6 +254,40 @@ public class Options {
    */
   public Options setVlogChunkSize(int vlogChunkSize) {
     this.vlogChunkSize = vlogChunkSize;
+    return this;
+  }
+
+  /**
+   * @return the vCntMaxSize
+   */
+  public long getvCntMaxSize() {
+    return vCntMaxSize;
+  }
+
+  /**
+   * @param vCntMaxSize
+   *          the vCntMaxSize to set
+   * @return
+   */
+  public Options setvCntMaxSize(long vCntMaxSize) {
+    this.vCntMaxSize = vCntMaxSize;
+    return this;
+  }
+
+  /**
+   * @return the vCntMaxChunkCount
+   */
+  public long getvCntMaxChunkCount() {
+    return vCntMaxChunkCount;
+  }
+
+  /**
+   * @param vCntMaxChunkCount
+   *          the vCntMaxChunkCount to set
+   * @return
+   */
+  public Options setvCntMaxChunkCount(long vCntMaxChunkCount) {
+    this.vCntMaxChunkCount = vCntMaxChunkCount;
     return this;
   }
 
