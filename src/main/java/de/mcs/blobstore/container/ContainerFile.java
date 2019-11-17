@@ -17,7 +17,6 @@ package de.mcs.blobstore.container;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
-import java.io.ByteArrayInputStream;
 import java.io.Closeable;
 import java.io.File;
 import java.io.FileInputStream;
@@ -30,28 +29,23 @@ import java.io.OutputStreamWriter;
 import java.io.RandomAccessFile;
 import java.io.Reader;
 import java.io.Writer;
-import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 
 import org.apache.commons.io.input.BoundedInputStream;
 
-import de.mcs.blobstore.BlobsDBException;
 import de.mcs.blobstore.ChunkEntry;
+import de.mcs.blobstore.ContainerReader;
 import de.mcs.blobstore.Options;
-import de.mcs.blobstore.vlog.VLogDescriptor;
 import de.mcs.blobstore.vlog.VLogEntryDescription;
 import de.mcs.blobstore.vlog.VLogEntryInfo;
 import de.mcs.utils.GsonUtils;
-import de.mcs.utils.HashUtils;
 import de.mcs.utils.io.RandomAccessInputStream;
 import de.mcs.utils.logging.Logger;
 
-public class ContainerFile implements Closeable {
+public class ContainerFile implements Closeable, ContainerReader {
 
   private Logger log = Logger.getLogger(this.getClass());
   private String internalName;
@@ -152,44 +146,46 @@ public class ContainerFile implements Closeable {
   }
 
   public VLogEntryInfo put(String family, byte[] key, int chunknumber, byte[] chunk) throws IOException {
-    byte[] familyBytes = family.getBytes(StandardCharsets.UTF_8);
-    if (familyBytes.length > VLogDescriptor.KEY_MAX_LENGTH) {
-      throw new BlobsDBException("Illegal family length.");
-    }
-    if (key.length > VLogDescriptor.KEY_MAX_LENGTH) {
-      throw new BlobsDBException("Illegal key length.");
-    }
-    if (!isAvailbleForWriting()) {
-      throw new BlobsDBException(String.format("VLogfile %s is not availble for writing.", internalName));
-    }
-    // calculating hash of chunk
-    ByteArrayInputStream in = new ByteArrayInputStream(chunk);
-    byte[] digest = HashUtils.hash(messageDigest, in);
-    in.reset();
-
+    // byte[] familyBytes = family.getBytes(StandardCharsets.UTF_8);
+    // if (familyBytes.length > VLogDescriptor.KEY_MAX_LENGTH) {
+    // throw new BlobsDBException("Illegal family length.");
+    // }
+    // if (key.length > VLogDescriptor.KEY_MAX_LENGTH) {
+    // throw new BlobsDBException("Illegal key length.");
+    // }
+    // if (!isAvailbleForWriting()) {
+    // throw new BlobsDBException(String.format("VLogfile %s is not availble for
+    // writing.", internalName));
+    // }
+    // // calculating hash of chunk
+    // ByteArrayInputStream in = new ByteArrayInputStream(chunk);
+    // byte[] digest = HashUtils.hash(messageDigest, in);
+    // in.reset();
+    //
     VLogEntryInfo info = new VLogEntryInfo();
-    info.start = fileChannel.position();
-    info.hash = digest;
-
-    VLogDescriptor vlogDescriptor = new VLogDescriptor();
-    vlogDescriptor.familyBytes = familyBytes;
-    vlogDescriptor.key = key;
-    vlogDescriptor.chunkNumber = chunknumber;
-    vlogDescriptor.hash = digest;
-    vlogDescriptor.length = chunk.length;
-    fileChannel.write(vlogDescriptor.getBytes());
-
-    info.startBinary = fileChannel.position();
-
-    // write the binary data
-    fileChannel.write(ByteBuffer.wrap(chunk));
-
-    info.end = fileChannel.position() - 1;
-    fileChannel.force(true);
-    chunkCount++;
+    // info.start = fileChannel.position();
+    // info.hash = digest;
+    //
+    // VLogDescriptor vlogDescriptor = new VLogDescriptor();
+    // vlogDescriptor.familyBytes = familyBytes;
+    // vlogDescriptor.key = key;
+    // vlogDescriptor.chunkNumber = chunknumber;
+    // vlogDescriptor.hash = digest;
+    // vlogDescriptor.length = chunk.length;
+    // fileChannel.write(vlogDescriptor.getBytes());
+    //
+    // info.startBinary = fileChannel.position();
+    //
+    // // write the binary data
+    // fileChannel.write(ByteBuffer.wrap(chunk));
+    //
+    // info.end = fileChannel.position() - 1;
+    // fileChannel.force(true);
+    // chunkCount++;
     return info;
   }
 
+  @Override
   public InputStream get(long offset, long size) throws IOException {
     return new BufferedInputStream(new BoundedInputStream(new RandomAccessInputStream(contFile, offset), size),
         options.getVlogChunkSize());
@@ -241,45 +237,49 @@ public class ContainerFile implements Closeable {
             markerFound = false;
           }
           position += 4;
-          if (!Arrays.equals(VLogDescriptor.DOC_START, next)) {
-            markerFound = false;
-          } else {
-            long startDescription = position;
-            byte[] descriptorArray = input.readNBytes(VLogDescriptor.lengthWithoutStart());
-            if (descriptorArray.length != VLogDescriptor.lengthWithoutStart()) {
-              throw new IOException("error reading description.");
-            }
-            position += descriptorArray.length;
-            VLogDescriptor descriptor = VLogDescriptor.fromBytesWithoutStart(descriptorArray);
-            if (descriptor == null) {
-              throw new IOException("length not ok");
-            } else {
-              // System.out.println("entry found: \r\n");
-              VLogEntryDescription info = new VLogEntryDescription();
-              info.chunkNumber = descriptor.chunkNumber;
-              info.containerName = getName();
-              info.end = position + descriptor.length - 1;
-              info.family = new String(descriptor.familyBytes, StandardCharsets.UTF_8);
-              info.hash = descriptor.hash;
-              info.key = descriptor.key;
-              info.length = descriptor.length;
-              info.start = start;
-              info.startBinary = position;
-              info.startDescription = startDescription;
-              long bytesToSkip = descriptor.length;
-              while ((bytesToSkip > 0) && (input.available() > 0)) {
-                long skip = input.skip(bytesToSkip);
-                if (skip < 0) {
-                  throw new IOException("vLog not correctly padded.");
-                }
-                bytesToSkip -= skip;
-                position += skip;
-              }
-              entryInfos.add(info);
-            }
-          }
-          if (!markerFound) {
-          }
+          // if (!Arrays.equals(VLogDescriptor.DOC_START, next)) {
+          // markerFound = false;
+          // } else {
+          // long startDescription = position;
+          // byte[] descriptorArray =
+          // input.readNBytes(VLogDescriptor.lengthWithoutStart());
+          // if (descriptorArray.length != VLogDescriptor.lengthWithoutStart())
+          // {
+          // throw new IOException("error reading description.");
+          // }
+          // position += descriptorArray.length;
+          // VLogDescriptor descriptor =
+          // VLogDescriptor.fromBytesWithoutStart(descriptorArray);
+          // if (descriptor == null) {
+          // throw new IOException("length not ok");
+          // } else {
+          // // System.out.println("entry found: \r\n");
+          // VLogEntryDescription info = new VLogEntryDescription();
+          // info.chunkNumber = descriptor.chunkNumber;
+          // info.containerName = getName();
+          // info.end = position + descriptor.length - 1;
+          // info.family = new String(descriptor.familyBytes,
+          // StandardCharsets.UTF_8);
+          // info.hash = descriptor.hash;
+          // info.key = descriptor.key;
+          // info.length = descriptor.length;
+          // info.start = start;
+          // info.startBinary = position;
+          // info.startDescription = startDescription;
+          // long bytesToSkip = descriptor.length;
+          // while ((bytesToSkip > 0) && (input.available() > 0)) {
+          // long skip = input.skip(bytesToSkip);
+          // if (skip < 0) {
+          // throw new IOException("vLog not correctly padded.");
+          // }
+          // bytesToSkip -= skip;
+          // position += skip;
+          // }
+          // entryInfos.add(info);
+          // }
+          // }
+          // if (!markerFound) {
+          // }
         }
       }
     }

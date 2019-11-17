@@ -15,7 +15,10 @@
  */
 package de.mcs.blobstore;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
@@ -37,8 +40,10 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 
 import de.mcs.blobstore.utils.QueuedIDGenerator;
 import de.mcs.jmeasurement.JMConfig;
@@ -47,6 +52,7 @@ import de.mcs.jmeasurement.Monitor;
 import de.mcs.utils.ByteArrayUtils;
 import de.mcs.utils.Files;
 
+@TestMethodOrder(OrderAnnotation.class)
 public class TestBlobStore {
 
   private static final int DOC_COUNT = 1000;
@@ -182,19 +188,18 @@ public class TestBlobStore {
     });
 
     InputStream inputStream = storage.get(FAMILY, uuid);
-    try {
-      byte[] allBytes;
-      m = MeasureFactory.start("readBig-Meta");
+    try (InputStream inputOrg = new BufferedInputStream(new ByteArrayInputStream(buffer))) {
       try {
-        allBytes = inputStream.readAllBytes();
+        m = MeasureFactory.start("readBig-Meta");
+        try {
+          assertTrue(IOUtils.contentEquals(inputStream, inputOrg));
+        } finally {
+          m.stop();
+        }
       } finally {
-        m.stop();
+        inputStream.close();
       }
-      assertTrue(Arrays.equals(buffer, allBytes));
-    } finally {
-      inputStream.close();
     }
-    System.out.println(MeasureFactory.asString());
   }
 
   @Order(3)
@@ -330,9 +335,6 @@ public class TestBlobStore {
         m.stop();
       }
     }
-    System.out.println();
-    System.out.printf("error on id: %d\r\n", ids.getErrorCount());
-    System.out.println(MeasureFactory.asString());
   }
 
   @Order(5)
@@ -440,7 +442,7 @@ public class TestBlobStore {
             ByteArrayInputStream in = new ByteArrayInputStream(buffer);
             m = MeasureFactory.start("readMulti-bin");
             try (InputStream inputStream = storage.get(FAMILY, uuid)) {
-              assertTrue(b.toString(), IOUtils.contentEquals(in, inputStream));
+              assertTrue(IOUtils.contentEquals(in, inputStream), b.toString());
             } finally {
               m.stop();
             }
@@ -452,9 +454,5 @@ public class TestBlobStore {
     }
     executor.shutdown();
     executor.awaitTermination(5, TimeUnit.MINUTES);
-
-    System.out.println();
-    System.out.printf("error on id: %d\r\n", ids.getErrorCount());
-    System.out.println(MeasureFactory.asString());
   }
 }

@@ -36,6 +36,7 @@ import org.apache.commons.io.input.BoundedInputStream;
 
 import de.mcs.blobstore.BlobsDBException;
 import de.mcs.blobstore.ChunkEntry;
+import de.mcs.blobstore.ContainerReader;
 import de.mcs.blobstore.Options;
 import de.mcs.utils.HashUtils;
 import de.mcs.utils.HashUtils.Algorithm;
@@ -49,7 +50,7 @@ import de.mcs.utils.logging.Logger;
  * @author wklaa_000
  *
  */
-public class VLogFile implements Closeable {
+public class VLogFile implements Closeable, ContainerReader {
 
   private Logger log = Logger.getLogger(this.getClass());
   private String internalName;
@@ -167,6 +168,7 @@ public class VLogFile implements Closeable {
     return info;
   }
 
+  @Override
   public InputStream get(long offset, long size) throws IOException {
     return new BufferedInputStream(new BoundedInputStream(new RandomAccessInputStream(vLogFile, offset), size),
         options.getVlogChunkSize());
