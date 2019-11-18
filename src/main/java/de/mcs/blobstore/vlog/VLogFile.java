@@ -171,7 +171,7 @@ public class VLogFile implements Closeable, ContainerReader {
   @Override
   public InputStream get(long offset, long size) throws IOException {
     return new BufferedInputStream(new BoundedInputStream(new RandomAccessInputStream(vLogFile, offset), size),
-        options.getVlogChunkSize());
+        options.getChunkSize());
   }
 
   public long getSize() {

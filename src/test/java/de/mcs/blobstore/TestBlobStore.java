@@ -90,7 +90,7 @@ public class TestBlobStore {
     }
     filePath.mkdirs();
     storage = new BlobStorageImpl(Options.defaultOptions().setPath(filePath.getAbsolutePath())
-        .setVlogMaxSize(100 * 1024 * 1024).setVlogChunkSize(512 * 1024));
+        .setVlogMaxSize(100 * 1024 * 1024).setChunkSize(512 * 1024));
   }
 
   @AfterEach

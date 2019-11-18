@@ -29,6 +29,7 @@ import java.io.OutputStreamWriter;
 import java.io.RandomAccessFile;
 import java.io.Reader;
 import java.io.Writer;
+import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -39,6 +40,7 @@ import org.apache.commons.io.input.BoundedInputStream;
 import de.mcs.blobstore.ChunkEntry;
 import de.mcs.blobstore.ContainerReader;
 import de.mcs.blobstore.Options;
+import de.mcs.blobstore.vlog.VLogDescriptor;
 import de.mcs.blobstore.vlog.VLogEntryDescription;
 import de.mcs.blobstore.vlog.VLogEntryInfo;
 import de.mcs.utils.GsonUtils;
@@ -143,52 +145,31 @@ public class ContainerFile implements Closeable, ContainerReader {
       fileChannel.close();
     }
     raf.close();
+    saveJsonFile();
   }
 
-  public VLogEntryInfo put(String family, byte[] key, int chunknumber, byte[] chunk) throws IOException {
-    // byte[] familyBytes = family.getBytes(StandardCharsets.UTF_8);
-    // if (familyBytes.length > VLogDescriptor.KEY_MAX_LENGTH) {
-    // throw new BlobsDBException("Illegal family length.");
-    // }
-    // if (key.length > VLogDescriptor.KEY_MAX_LENGTH) {
-    // throw new BlobsDBException("Illegal key length.");
-    // }
-    // if (!isAvailbleForWriting()) {
-    // throw new BlobsDBException(String.format("VLogfile %s is not availble for
-    // writing.", internalName));
-    // }
-    // // calculating hash of chunk
-    // ByteArrayInputStream in = new ByteArrayInputStream(chunk);
-    // byte[] digest = HashUtils.hash(messageDigest, in);
-    // in.reset();
-    //
+  public VLogEntryInfo put(VLogDescriptor descriptor, byte[] chunk) throws IOException {
     VLogEntryInfo info = new VLogEntryInfo();
-    // info.start = fileChannel.position();
-    // info.hash = digest;
-    //
-    // VLogDescriptor vlogDescriptor = new VLogDescriptor();
-    // vlogDescriptor.familyBytes = familyBytes;
-    // vlogDescriptor.key = key;
-    // vlogDescriptor.chunkNumber = chunknumber;
-    // vlogDescriptor.hash = digest;
-    // vlogDescriptor.length = chunk.length;
-    // fileChannel.write(vlogDescriptor.getBytes());
-    //
-    // info.startBinary = fileChannel.position();
-    //
-    // // write the binary data
-    // fileChannel.write(ByteBuffer.wrap(chunk));
-    //
-    // info.end = fileChannel.position() - 1;
-    // fileChannel.force(true);
-    // chunkCount++;
+    info.setStart(fileChannel.position());
+    info.setHash(descriptor.getHash());
+
+    fileChannel.write(descriptor.getBytes());
+
+    info.setStartBinary(fileChannel.position());
+
+    // write the binary data
+    fileChannel.write(ByteBuffer.wrap(chunk));
+
+    info.setEnd(fileChannel.position() - 1);
+    fileChannel.force(true);
+    containerProperties.setChunkCount(containerProperties.getChunkCount() + 1);
     return info;
   }
 
   @Override
   public InputStream get(long offset, long size) throws IOException {
     return new BufferedInputStream(new BoundedInputStream(new RandomAccessInputStream(contFile, offset), size),
-        options.getVlogChunkSize());
+        options.getChunkSize());
   }
 
   public long getSize() {

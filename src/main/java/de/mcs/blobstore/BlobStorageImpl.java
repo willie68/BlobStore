@@ -120,7 +120,7 @@ public class BlobStorageImpl implements BlobStorage {
         int chunkNumber = 1;
         byte[] chunk;
         do {
-          chunk = in.readNBytes(options.getVlogChunkSize());
+          chunk = in.readNBytes(options.getChunkSize());
           if (chunk.length > 0) {
             // writing binary data
             try (VLog vLog = vLogList.getNextAvailableVLog()) {

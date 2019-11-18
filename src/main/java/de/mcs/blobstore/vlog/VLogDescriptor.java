@@ -35,8 +35,10 @@ public class VLogDescriptor {
   static final int KEY_MAX_LENGTH = 255;
   static final int HASH_LENGTH = 32;
 
-  // because of the headerstructure, 4 bytes DOC_START + 1 byte KEY_LENGTH + FAMILY + 1 byte KEY_LENGTH + KEY
-  // itself + 4 bytes Chunknumber + 8 byte length + 32 byte hash + 1 byte DOC_LIMITER
+  // because of the headerstructure, 4 bytes DOC_START + 1 byte KEY_LENGTH +
+  // FAMILY + 1 byte KEY_LENGTH + KEY
+  // itself + 4 bytes Chunknumber + 8 byte length + 32 byte hash + 1 byte
+  // DOC_LIMITER
   private static final int HEADER_MAX_LENGTH = DOC_START.length + 1 + KEY_MAX_LENGTH + 1 + KEY_MAX_LENGTH + 4 + 8
       + HASH_LENGTH + DOC_LIMITER.length;
 
@@ -51,11 +53,11 @@ public class VLogDescriptor {
     hash = new byte[HASH_LENGTH];
   }
 
-  String getHash() {
+  String getHashAsString() {
     return ByteArrayUtils.bytesAsHexString(hash);
   }
 
-  ByteBuffer getBytes() {
+  public ByteBuffer getBytes() {
     ByteBuffer header = ByteBuffer.allocateDirect(HEADER_MAX_LENGTH);
     header.rewind();
     header.put(DOC_START);
@@ -134,6 +136,83 @@ public class VLogDescriptor {
 
   public static int lengthWithoutStart() {
     return length() - DOC_START.length;
+  }
+
+  /**
+   * @return the familyBytes
+   */
+  public byte[] getFamilyBytes() {
+    return familyBytes;
+  }
+
+  /**
+   * @param familyBytes the familyBytes to set
+   * @return 
+   */
+  public VLogDescriptor setFamilyBytes(byte[] familyBytes) {
+    this.familyBytes = familyBytes;
+    return this;
+  }
+
+  /**
+   * @return the key
+   */
+  public byte[] getKey() {
+    return key;
+  }
+
+  /**
+   * @param key the key to set
+   * @return 
+   */
+  public VLogDescriptor setKey(byte[] key) {
+    this.key = key;
+    return this;
+  }
+
+  /**
+   * @return the chunkNumber
+   */
+  public int getChunkNumber() {
+    return chunkNumber;
+  }
+
+  /**
+   * @param chunkNumber the chunkNumber to set
+   * @return 
+   */
+  public VLogDescriptor setChunkNumber(int chunkNumber) {
+    this.chunkNumber = chunkNumber;
+    return this;
+  }
+
+  /**
+   * @return the length
+   */
+  public long getLength() {
+    return length;
+  }
+
+  /**
+   * @param length the length to set
+   * @return 
+   */
+  public VLogDescriptor setLength(long length) {
+    this.length = length;
+    return this;
+  }
+
+  public byte[] getHash() {
+    return hash;
+  }
+
+  /**
+   * @param hash the hash to set
+   * @return 
+   */
+  public VLogDescriptor setHash(byte[] hash) {
+    this.hash = hash;
+    return this;
   }
 
 }

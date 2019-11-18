@@ -69,4 +69,40 @@ public class VLogEntryInfo {
     return startBinary - start;
   }
 
+  /**
+   * @param start the start to set
+   * @return 
+   */
+  public VLogEntryInfo setStart(long start) {
+    this.start = start;
+    return this;
+  }
+
+  /**
+   * @param startBinary the startBinary to set
+   * @return 
+   */
+  public VLogEntryInfo setStartBinary(long startBinary) {
+    this.startBinary = startBinary;
+    return this;
+  }
+
+  /**
+   * @param end the end to set
+   * @return 
+   */
+  public VLogEntryInfo setEnd(long end) {
+    this.end = end;
+    return this;
+  }
+
+  /**
+   * @param hash the hash to set
+   * @return 
+   */
+  public VLogEntryInfo setHash(byte[] hash) {
+    this.hash = hash;
+    return this;
+  }
+
 }

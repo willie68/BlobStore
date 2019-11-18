@@ -33,7 +33,7 @@ public class Options {
   public static Options defaultOptions() {
     return new Options().setvCntCompressAge(0).setvCntCompressionMode(0).setvCntDeleteTreshHold(10)
         .setvLogAge(1 * 60 * 60 * 1000).setVlogMaxChunkCount(10000).setVlogMaxSize(100 * 1024 * 1024)
-        .setVlogMaxFileCount(10).setVlogChunkSize(1024 * 1024);
+        .setVlogMaxFileCount(10).setChunkSize(1024 * 1024);
   }
 
   /**
@@ -44,7 +44,7 @@ public class Options {
   /**
    * blobs will be chuncked with this size. Defualt value is 1MB.
    */
-  private int vlogChunkSize;
+  private int chunkSize;
 
   /**
    * how much is the delete treshhold
@@ -243,17 +243,17 @@ public class Options {
   /**
    * @return the vlogChunkSize
    */
-  public int getVlogChunkSize() {
-    return vlogChunkSize;
+  public int getChunkSize() {
+    return chunkSize;
   }
 
   /**
-   * @param vlogChunkSize
+   * @param chunkSize
    *          the vlogChunkSize to set
    * @return
    */
-  public Options setVlogChunkSize(int vlogChunkSize) {
-    this.vlogChunkSize = vlogChunkSize;
+  public Options setChunkSize(int chunkSize) {
+    this.chunkSize = chunkSize;
     return this;
   }
 
