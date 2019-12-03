@@ -19,7 +19,6 @@ import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.Closeable;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.RandomAccessFile;
@@ -52,6 +51,7 @@ import de.mcs.utils.logging.Logger;
  */
 public class VLogFile implements Closeable, ContainerReader {
 
+  private static final long MAX_VLOG_SIZE = 1024L * 1024L * 1024L * 2L;
   private Logger log = Logger.getLogger(this.getClass());
   private String internalName;
   private File vLogFile;
@@ -108,9 +108,11 @@ public class VLogFile implements Closeable, ContainerReader {
     readOnly = true;
   }
 
-  private void initLogFile() throws FileNotFoundException {
+  private void initLogFile() throws IOException {
     log.debug("creating new vlog file: %s", internalName);
     writer = new RandomAccessFile(vLogFile, "rw");
+    writer.setLength(MAX_VLOG_SIZE);
+    writer.seek(0);
     fileChannel = writer.getChannel();
     chunkCount = 0;
     readOnly = false;
@@ -124,6 +126,10 @@ public class VLogFile implements Closeable, ContainerReader {
   public void close() throws IOException {
     if ((fileChannel != null) && fileChannel.isOpen()) {
       fileChannel.force(true);
+      long position = fileChannel.position();
+      if (!readOnly) {
+        writer.setLength(position);
+      }
       fileChannel.close();
     }
     writer.close();
@@ -163,7 +169,7 @@ public class VLogFile implements Closeable, ContainerReader {
     fileChannel.write(ByteBuffer.wrap(chunk));
 
     info.end = fileChannel.position() - 1;
-    fileChannel.force(true);
+    fileChannel.force(false);
     chunkCount++;
     return info;
   }
