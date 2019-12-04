@@ -33,7 +33,7 @@ public class VLogDescriptor {
   static final byte[] DOC_START = ("@@@" + VLOG_VERSION).getBytes(StandardCharsets.UTF_8);
   static final byte[] DOC_LIMITER = "#".getBytes(StandardCharsets.UTF_8);
   static final int KEY_MAX_LENGTH = 255;
-  static final int HASH_LENGTH = 32;
+  static final int HASH_LENGTH = ByteArrayUtils.LONGBYTES;
 
   // because of the headerstructure, 4 bytes DOC_START + 1 byte KEY_LENGTH +
   // FAMILY + 1 byte KEY_LENGTH + KEY

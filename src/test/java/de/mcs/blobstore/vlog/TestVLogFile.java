@@ -38,7 +38,7 @@ import java.util.Random;
 import java.util.UUID;
 
 import org.apache.commons.io.IOUtils;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -59,19 +59,21 @@ import de.mcs.utils.Files;
 @TestMethodOrder(OrderAnnotation.class)
 class TestVLogFile {
 
-  private static final int MAX_DOCS = 1000;
+  private static final int MAX_DOCS = 100;
   private static final String FAMILY = "EASY";
   private static final String BLOBSTORE_PATH = "e:/temp/blobstore/mydb";
   private static final boolean DELETE_BEFORE_TEST = true;
-  private File filePath;
-  private QueuedIDGenerator ids;
-  private Options options;
+  private static File filePath;
+  private static QueuedIDGenerator ids;
+  private static Options options;
+  private static Map<String, VLogEntryInfo> myMap;
+  private static List<String> myIds;
 
   /**
    * @throws java.lang.Exception
    */
-  @BeforeEach
-  void setUp() throws Exception {
+  @BeforeAll
+  public static void setUp() throws Exception {
     MeasureFactory.setOption(JMConfig.OPTION_DISABLE_DEVIATION, "true");
     ids = new QueuedIDGenerator(1000);
     Thread.sleep(1000);
@@ -81,9 +83,11 @@ class TestVLogFile {
     }
     options = Options.defaultOptions().setPath(BLOBSTORE_PATH).setVlogMaxChunkCount(10000)
         .setVlogMaxSize(2048L * 1024L * 1024L);
+    myIds = new ArrayList<>();
+    myMap = new HashMap<>();
   }
 
-  private void deleteFolder() throws IOException, InterruptedException {
+  private static void deleteFolder() throws IOException, InterruptedException {
     filePath = new File(BLOBSTORE_PATH);
     if (filePath.exists()) {
       Files.remove(filePath, true);
@@ -165,22 +169,24 @@ class TestVLogFile {
       }
       for (byte[] id : descs) {
 
-        System.out.println(infos.get(id).toString());
+        // System.out.println(infos.get(id).toString());
 
         testFileBin(vLogFile, buffer, id, infos.get(id));
       }
     }
 
-    System.out.println("test iterator");
-
-    List<String> myIds = new ArrayList<>();
-    Map<String, VLogEntryInfo> myMap = new HashMap<>();
     descs.forEach(k -> {
       myIds.add(ByteArrayUtils.bytesAsHexString(k));
       VLogEntryInfo vLogEntryInfo = infos.get(k);
       myMap.put(ByteArrayUtils.bytesAsHexString(k), vLogEntryInfo);
     });
+    System.out.println();
+  }
 
+  @Order(3)
+  @Test
+  public void testIterator() throws IOException {
+    System.out.println("test iterator");
     int count = 0;
     try (VLogFile vLogFile = new VLogFile(options, 2)) {
       List<VLogEntryDescription> list = new ArrayList<>();
@@ -247,8 +253,4 @@ class TestVLogFile {
     assertEquals(1, descriptor.chunkNumber);
   }
 
-  @Order(3)
-  @Test
-  public void testIterator() throws IOException {
-  }
 }

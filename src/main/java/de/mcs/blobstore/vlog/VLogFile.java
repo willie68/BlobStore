@@ -16,7 +16,6 @@
 package de.mcs.blobstore.vlog;
 
 import java.io.BufferedInputStream;
-import java.io.ByteArrayInputStream;
 import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
@@ -30,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.zip.CRC32;
 
 import org.apache.commons.io.input.BoundedInputStream;
 
@@ -37,7 +37,7 @@ import de.mcs.blobstore.BlobsDBException;
 import de.mcs.blobstore.ChunkEntry;
 import de.mcs.blobstore.ContainerReader;
 import de.mcs.blobstore.Options;
-import de.mcs.utils.HashUtils;
+import de.mcs.utils.ByteArrayUtils;
 import de.mcs.utils.HashUtils.Algorithm;
 import de.mcs.utils.io.RandomAccessInputStream;
 import de.mcs.utils.logging.Logger;
@@ -51,7 +51,7 @@ import de.mcs.utils.logging.Logger;
  */
 public class VLogFile implements Closeable, ContainerReader {
 
-  private static final long MAX_VLOG_SIZE = 1024L * 1024L * 1024L * 2L;
+  private static final long MAX_VLOG_SIZE = (1024L * 1024L * 1024L * 2L) - 1L;
   private Logger log = Logger.getLogger(this.getClass());
   private String internalName;
   private File vLogFile;
@@ -144,12 +144,16 @@ public class VLogFile implements Closeable, ContainerReader {
       throw new BlobsDBException("Illegal key length.");
     }
     if (!isAvailbleForWriting()) {
-      throw new BlobsDBException(String.format("VLogfile %s is not availble for writing.", internalName));
+      throw new BlobsDBException(String.format("VLogfile %s is not available for writing.", internalName));
     }
+    byte[] digest = new byte[2];
     // calculating hash of chunk
-    ByteArrayInputStream in = new ByteArrayInputStream(chunk);
-    byte[] digest = HashUtils.hash(messageDigest, in);
-    in.reset();
+    CRC32 crc32 = new CRC32();
+    crc32.update(chunk);
+    digest = ByteArrayUtils.longToBytes(crc32.getValue());
+    // ByteArrayInputStream in = new ByteArrayInputStream(chunk);
+    // byte[] digest = HashUtils.hash(messageDigest, in);
+    // in.reset();
 
     VLogEntryInfo info = new VLogEntryInfo();
     info.start = fileChannel.position();
@@ -161,15 +165,13 @@ public class VLogFile implements Closeable, ContainerReader {
     vlogDescriptor.chunkNumber = chunknumber;
     vlogDescriptor.hash = digest;
     vlogDescriptor.length = chunk.length;
-    fileChannel.write(vlogDescriptor.getBytes());
-
-    info.startBinary = fileChannel.position();
-
     // write the binary data
+    fileChannel.write(vlogDescriptor.getBytes());
+    info.startBinary = fileChannel.position();
     fileChannel.write(ByteBuffer.wrap(chunk));
-
     info.end = fileChannel.position() - 1;
     fileChannel.force(false);
+
     chunkCount++;
     return info;
   }
@@ -260,6 +262,8 @@ public class VLogFile implements Closeable, ContainerReader {
               info.start = start;
               info.startBinary = position;
               info.startDescription = startDescription;
+              entryInfos.add(info);
+
               long bytesToSkip = descriptor.length;
               while ((bytesToSkip > 0) && (input.available() > 0)) {
                 long skip = input.skip(bytesToSkip);
@@ -269,7 +273,6 @@ public class VLogFile implements Closeable, ContainerReader {
                 bytesToSkip -= skip;
                 position += skip;
               }
-              entryInfos.add(info);
             }
           }
           if (!markerFound) {
@@ -279,4 +282,5 @@ public class VLogFile implements Closeable, ContainerReader {
     }
     return entryInfos.iterator();
   }
+
 }

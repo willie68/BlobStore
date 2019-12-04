@@ -18,6 +18,8 @@ package de.mcs.utils;
 import java.io.IOException;
 
 public class ByteArrayUtils {
+  public static final int LONGBYTES = 8;
+
   /**
    * 
    * @param bytes
@@ -113,4 +115,31 @@ public class ByteArrayUtils {
     return digit;
   }
 
+  /**
+   * converts a long value into a byte array
+   * @param l long value
+   * @return byte array
+   */
+  public static byte[] longToBytes(long l) {
+    byte[] result = new byte[LONGBYTES];
+    for (int i = LONGBYTES - 1; i >= 0; i--) {
+      result[i] = (byte) (l & 0xFF);
+      l >>= 8;
+    }
+    return result;
+  }
+
+  /**
+   * converts a byte array into a long value
+   * @param b byte array
+   * @return long
+   */
+  public static long bytesToLong(byte[] b) {
+    long result = 0;
+    for (int i = 0; i < LONGBYTES; i++) {
+      result <<= 8;
+      result |= (b[i] & 0xFF);
+    }
+    return result;
+  }
 }
